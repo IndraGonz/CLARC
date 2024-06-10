@@ -6,7 +6,10 @@
 import argparse
 from .filtering_acc_core import get_pop_acc_pres_abs, get_pop_core_pres_abs
 from .get_linkage_matrix import get_linkage_matrices
+from .eggnog_annotations import get_functional_groups
+from .clarc_condense import clarc_cleaning
 import pandas as pd
+import subprocess
 
 # Run stuff
 
@@ -37,7 +40,21 @@ def main():
 
     print("Linkage matrices generated for the subpopulation accessory genes.")
 
-    ##
+    ## Perform blastn all v all comparison for accessory gene rep sequences
+    subprocess.run(['bash', 'acccog_blastn.sh', output_dir])
+
+    print("All vs. all nucleotide BLAST performed for the subpopulation accessory genes.")
+
+    ## Perform eggnog functional annotation
+    get_functional_groups(output_dir)
+
+    print("Eggnog functional annotation complete. Only a little bit to go!")
+
+    ## Perform CLARC cleaning of COGs
+    clarc_cleaning(output_dir)
+
+    print("CLARC finished re-defining COGs. Have fun with the results!")
+
 
 if __name__ == "__main__":
     main()

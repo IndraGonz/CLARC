@@ -34,9 +34,6 @@ def get_linkage_matrices(out_path):
     # Read presence absence matrix
     pan_acc = pd.read_csv(pres_abs_path, index_col=0)
 
-    # Set accession column as indices (since it's the isolate identifier)
-    pan_acc.set_index('Accession', inplace=True)
-
     # Get list of COG names
     cog_names = list(pan_acc.columns.values)
 

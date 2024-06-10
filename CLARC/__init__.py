@@ -6,7 +6,10 @@
 import argparse
 from .filtering_acc_core import get_pop_acc_pres_abs, get_pop_core_pres_abs
 from .get_linkage_matrix import get_linkage_matrices
+from .eggnog_annotations import get_functional_groups
+from .clarc_condense import clarc_cleaning
 import pandas as pd
+import subprocess
 
 # Run stuff
 
@@ -17,6 +20,7 @@ def main():
     parser.add_argument("--acc_upper", default=0.95, type=float, help="Upper bound for accessory gene filtering")
     parser.add_argument("--acc_lower", default=0.05, type=float, help="Lower bound for accessory gene filtering")
     parser.add_argument("--core_lower", default=0.95, type=float, help="Lower bound for core gene filtering")
+    parser.add_argument("--filter-only", action='store_true', help="If given, only run the filtering steps")
     args = parser.parse_args()
 
     ## Set input parameters and PATHs ####
@@ -25,6 +29,7 @@ def main():
     acc_upper = args.acc_upper
     acc_lower = args.acc_lower
     core_lower = args.core_lower
+    filter_only = args.filter_only
 
     # Filter date to create presence absence matrices for core and accessory genes
     get_pop_acc_pres_abs(input_dir, output_dir, acc_upper, acc_lower)
@@ -32,12 +37,31 @@ def main():
 
     print("Data filtered, presence absence matrices created for subpopulation of samples.")
 
+    # If --filter-only is given, stop here
+    if filter_only:
+        print("CLARC finished running on 'filter only' mode")
+        return
+
     ## Get linkage matrices for CLARC analysis
     get_linkage_matrices(output_dir)
 
     print("Linkage matrices generated for the subpopulation accessory genes.")
 
-    ##
+    ## Perform blastn all v all comparison for accessory gene rep sequences
+    subprocess.run(['bash', 'acccog_blastn.sh', output_dir])
+
+    print("All vs. all nucleotide BLAST performed for the subpopulation accessory genes.")
+
+    ## Perform eggnog functional annotation
+    get_functional_groups(output_dir)
+
+    print("Eggnog functional annotation of accessory COGs is complete.")
+
+    ## Perform CLARC cleaning of COGs
+    clarc_cleaning(output_dir)
+
+    print("CLARC finished re-defining COGs. Have fun with the results!")
+
 
 if __name__ == "__main__":
     main()

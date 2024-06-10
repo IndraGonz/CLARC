@@ -2,8 +2,9 @@ from setuptools import setup, find_packages
 
 setup(
     name='CLARC',
-    version='1.0.1',  # Adding the linkage calculation
+    version='1.0.10',
     packages=find_packages(),
+    scripts=['scripts/acccog_blastn.sh'],
     entry_points={
         'console_scripts': [
             'clarc = CLARC.__init__:main'
@@ -16,6 +17,6 @@ setup(
     ],
     author='Indra Gonzalez Ojeda',
     author_email='igonzalezojeda@g.harvard.edu',
-    description='Package to cluster COG definitions based on a subpopulation of a general pangenome analysis (in Roary so far)',
+    description='Package to cluster COG definitions based on a subpopulation of a general pangenome analysis',
     url='tbd',
 )
