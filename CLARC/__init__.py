@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 
 # Author: Indra González Ojeda
-# CLARC: Pipeline that cleans gene definitions within a population in a multi-population pangenome analysis
+# CLARC: Pipeline that cleans the COG definitions of a specific population within a multi-population pangenome analysis
 
 import argparse
+import sys
 from .filtering_acc_core import get_pop_acc_pres_abs, get_pop_core_pres_abs
 from .get_linkage_matrix import get_linkage_matrices
 from .eggnog_annotations import get_functional_groups
 from .clarc_condense import clarc_cleaning
-import pandas as pd
 import subprocess
+from .version import __version__  # Import the version
 
 # Run stuff
 
@@ -21,12 +22,25 @@ def main():
     parser.add_argument("--acc_lower", default=0.05, type=float, help="Lower bound for accessory gene filtering")
     parser.add_argument("--core_lower", default=0.95, type=float, help="Lower bound for core gene filtering")
     parser.add_argument("--filter-only", action='store_true', help="If given, only run the filtering steps")
+    parser.add_argument("--options", action='store_true', help="Show available options")
+    parser.add_argument("--version", action='store_true', help="Show the version of the CLARC tool")
+
     args = parser.parse_args()
 
-    # Error if no arguments are provided 
+    # Error if no arguments are provided
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
         sys.exit(1)
+
+    # Display options if --options is called
+    if args.options:
+        parser.print_help()
+        sys.exit(0)
+
+    # Display version if --version is called
+    if args.version:
+        print(f"CLARC version {__version__}")
+        sys.exit(0)
 
     ## Set input parameters and PATHs ####
     input_dir = args.input_dir
@@ -38,7 +52,7 @@ def main():
 
     print("Filtering data to identify accessory and core genes...")
 
-    # Filter date to create presence absence matrices for core and accessory genes
+    # Filter data to create presence absence matrices for core and accessory genes
     get_pop_acc_pres_abs(input_dir, output_dir, acc_upper, acc_lower)
     get_pop_core_pres_abs(input_dir, output_dir, core_lower)
 
