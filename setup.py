@@ -18,5 +18,5 @@ setup(
     author='Indra Gonzalez Ojeda',
     author_email='igonzalezojeda@g.harvard.edu',
     description='Package to cluster COG definitions based on a subpopulation of a general pangenome analysis',
-    url='tbd',
+    url='https://github.com/IndraGonz/CLARC',
 )
