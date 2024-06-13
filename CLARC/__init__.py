@@ -23,6 +23,11 @@ def main():
     parser.add_argument("--filter-only", action='store_true', help="If given, only run the filtering steps")
     args = parser.parse_args()
 
+    # Error if no arguments are provided 
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+
     ## Set input parameters and PATHs ####
     input_dir = args.input_dir
     output_dir = args.output_dir
