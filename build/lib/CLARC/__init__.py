@@ -20,6 +20,7 @@ def main():
     parser.add_argument("--acc_upper", default=0.95, type=float, help="Upper bound for accessory gene filtering")
     parser.add_argument("--acc_lower", default=0.05, type=float, help="Lower bound for accessory gene filtering")
     parser.add_argument("--core_lower", default=0.95, type=float, help="Lower bound for core gene filtering")
+    parser.add_argument("--filter-only", action='store_true', help="If given, only run the filtering steps")
     args = parser.parse_args()
 
     ## Set input parameters and PATHs ####
@@ -28,12 +29,22 @@ def main():
     acc_upper = args.acc_upper
     acc_lower = args.acc_lower
     core_lower = args.core_lower
+    filter_only = args.filter_only
+
+    print("Filtering data to identify accessory and core genes...")
 
     # Filter date to create presence absence matrices for core and accessory genes
     get_pop_acc_pres_abs(input_dir, output_dir, acc_upper, acc_lower)
     get_pop_core_pres_abs(input_dir, output_dir, core_lower)
 
     print("Data filtered, presence absence matrices created for subpopulation of samples.")
+
+    # If --filter-only is given, stop here
+    if filter_only:
+        print("CLARC finished running on 'filter only' mode")
+        return
+
+    print("Calculating the linkage matrices...")
 
     ## Get linkage matrices for CLARC analysis
     get_linkage_matrices(output_dir)
@@ -45,10 +56,12 @@ def main():
 
     print("All vs. all nucleotide BLAST performed for the subpopulation accessory genes.")
 
+    print("Performing EggNOG functional annotations...")
+
     ## Perform eggnog functional annotation
     get_functional_groups(output_dir)
 
-    print("Eggnog functional annotation complete. Only a little bit to go!")
+    print("Eggnog functional annotation of accessory COGs is complete.")
 
     ## Perform CLARC cleaning of COGs
     clarc_cleaning(output_dir)

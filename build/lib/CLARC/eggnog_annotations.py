@@ -9,6 +9,8 @@
 #
 # I do think these annotations might be more accurate, since I am using the most abundant functional group annotated for the top 5 ortholog groups hits with the database. In the future I could refine it to prioritize hits with Streptococcus, other paramaters, etc. For now, this seemed like a good basic annotation.
 
+# Hold this for now in case it doesn't work: "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:125.0) Gecko/20100101 Firefox/125.0"
+
 # ### Import necessary packages
 
 import requests
@@ -33,7 +35,7 @@ def get_functional_groups(out_path):
     def submit_sequence(sequence, max_retries=3, delay=1):
         url = "http://eggnogapi5.embl.de/fast_webscan"
         headers = {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:125.0) Gecko/20100101 Firefox/125.0",
+            "User-Agent": "Mozilla/5.0",
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "en-US,en;q=0.5",
             "Accept-Encoding": "gzip, deflate",

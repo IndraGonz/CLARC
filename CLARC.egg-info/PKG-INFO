@@ -1,7 +1,7 @@
 Metadata-Version: 2.1
 Name: CLARC
-Version: 1.0.9
-Summary: Package to cluster COG definitions based on a subpopulation of a general pangenome analysis (in Roary so far)
+Version: 1.0.12
+Summary: Package to cluster COG definitions based on a subpopulation of a general pangenome analysis
 Home-page: tbd
 Author: Indra Gonzalez Ojeda
 Author-email: igonzalezojeda@g.harvard.edu

@@ -31,6 +31,8 @@ def main():
     core_lower = args.core_lower
     filter_only = args.filter_only
 
+    print("Filtering data to identify accessory and core genes...")
+
     # Filter date to create presence absence matrices for core and accessory genes
     get_pop_acc_pres_abs(input_dir, output_dir, acc_upper, acc_lower)
     get_pop_core_pres_abs(input_dir, output_dir, core_lower)
@@ -42,6 +44,8 @@ def main():
         print("CLARC finished running on 'filter only' mode")
         return
 
+    print("Calculating the linkage matrices...")
+
     ## Get linkage matrices for CLARC analysis
     get_linkage_matrices(output_dir)
 
@@ -51,6 +55,8 @@ def main():
     subprocess.run(['bash', 'acccog_blastn.sh', output_dir])
 
     print("All vs. all nucleotide BLAST performed for the subpopulation accessory genes.")
+
+    print("Performing EggNOG functional annotations...")
 
     ## Perform eggnog functional annotation
     get_functional_groups(output_dir)
