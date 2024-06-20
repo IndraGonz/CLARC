@@ -6,6 +6,7 @@
 import argparse
 import sys
 from .filtering_acc_core import get_pop_acc_pres_abs, get_pop_core_pres_abs
+from .filtering_acc_core_panaroo import get_pop_acc_pres_abs_panaroo, get_pop_core_pres_abs_panaroo
 from .get_linkage_matrix import get_linkage_matrices
 from .eggnog_annotations import get_functional_groups
 from .clarc_condense import clarc_cleaning
@@ -22,6 +23,7 @@ def main():
     parser.add_argument("--acc_lower", default=0.05, type=float, help="Lower bound for accessory gene filtering")
     parser.add_argument("--core_lower", default=0.95, type=float, help="Lower bound for core gene filtering")
     parser.add_argument("--filter-only", action='store_true', help="If given, only run the filtering steps")
+    parser.add_argument("--panaroo", action='store_true', help="If given, the input data will be from Panaroo and it will filter accordingly. Remember to provide the 'gene_data.csv' input")
     parser.add_argument("--options", action='store_true', help="Show available options")
     parser.add_argument("--version", action='store_true', help="Show the version of the CLARC tool")
 
@@ -49,12 +51,19 @@ def main():
     acc_lower = args.acc_lower
     core_lower = args.core_lower
     filter_only = args.filter_only
+    panaroo = args.panaroo
 
     print("Filtering data to identify accessory and core genes...")
 
-    # Filter data to create presence absence matrices for core and accessory genes
-    get_pop_acc_pres_abs(input_dir, output_dir, acc_upper, acc_lower)
-    get_pop_core_pres_abs(input_dir, output_dir, core_lower)
+    if args.panaroo:
+        # Filter Panaroo data to create presence absence matrices for core and accessory genes
+        get_pop_acc_pres_abs_panaroo(input_dir, output_dir, acc_upper, acc_lower)
+        get_pop_core_pres_abs_panaroo(input_dir, output_dir, core_lower)
+
+    else:
+        # Filter Roary data to create presence absence matrices for core and accessory genes
+        get_pop_acc_pres_abs(input_dir, output_dir, acc_upper, acc_lower)
+        get_pop_core_pres_abs(input_dir, output_dir, core_lower)
 
     print("Data filtered, presence absence matrices created for subpopulation of samples.")
 
