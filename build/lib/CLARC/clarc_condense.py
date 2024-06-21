@@ -18,6 +18,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 import os
+import sys
 
 
 # # Import linkage results
@@ -186,234 +187,252 @@ def clarc_cleaning(out_path):
     samegene_connected_cogs = samegene_connected_cogs.sort_values(by=['group_length'], ascending=False)
     samegene_connected_cogs = samegene_connected_cogs.reset_index(drop=True)
 
-    def summarize_clusters(samegene_connected_cogs, cog_freq_df, max_clusters):
-        # Create dataframe to summarize the clusters
-        columns = [f'COG{i}' for i in range(1, max_clusters+1)]
-        samegene_connected_cogs_exp = pd.DataFrame(samegene_connected_cogs.iloc[:, 0].to_list(), columns=columns)
+    if samegene_connected_cogs.empty:
 
-        # Set empty columns where frequency values will go
-        for i in range(1, max_clusters+1):
-            samegene_connected_cogs_exp[f'freq_cog{i}'] = ""
+        clarc_summary_path = out_path+"/clarc_results"
 
-        # Get frequency values
-        for i in range(1, max_clusters+1):
-            cog_list = samegene_connected_cogs_exp[f'COG{i}']
-            for j, cog in enumerate(cog_list):
-                if cog is None:
-                    samegene_connected_cogs_exp.at[j, f'freq_cog{i}'] = None
+        if not os.path.exists(clarc_summary_path):
+            os.makedirs(clarc_summary_path)
+
+        out_text = clarc_summary_path+'/clarc_cluster_summary.txt'
+        with open(out_text, "a") as file:
+            file.write(f'Core COG clusters: 0')
+            file.write(f'Unique COGs in core clusters: 0')
+            file.write(f'Accessory COG clusters: 0')
+            file.write(f'Unique COGs in accessory clusters: 0')
+
+        sys.exit("No CLARC clusters found")
+
+    else:
+
+        def summarize_clusters(samegene_connected_cogs, cog_freq_df, max_clusters):
+            # Create dataframe to summarize the clusters
+            columns = [f'COG{i}' for i in range(1, max_clusters+1)]
+            samegene_connected_cogs_exp = pd.DataFrame(samegene_connected_cogs.iloc[:, 0].to_list(), columns=columns)
+
+            # Set empty columns where frequency values will go
+            for i in range(1, max_clusters+1):
+                samegene_connected_cogs_exp[f'freq_cog{i}'] = ""
+
+            # Get frequency values
+            for i in range(1, max_clusters+1):
+                cog_list = samegene_connected_cogs_exp[f'COG{i}']
+                for j, cog in enumerate(cog_list):
+                    if cog is None:
+                        samegene_connected_cogs_exp.at[j, f'freq_cog{i}'] = None
+                    else:
+                        x = cog_freq_df.query(f"COG == '{cog}'")
+                        x = x.reset_index()
+                        freq = x['freq'][0] if not x.empty else None
+                        samegene_connected_cogs_exp.at[j, f'freq_cog{i}'] = freq
+
+            return samegene_connected_cogs_exp
+
+        max_clusters = samegene_connected_cogs['group_length'][0]
+        samegene_connected_cogs_exp = summarize_clusters(samegene_connected_cogs, cog_freq_df, max_clusters)
+
+        # Get the list of column names
+        frequency_columns = [f"freq_cog{i}" for i in range(1, max_clusters+1)]
+
+        # Add freq sum
+        samegene_connected_cogs_exp["freq_sum"] = samegene_connected_cogs_exp[frequency_columns].sum(axis=1)
+
+        # Now get clusters that seem to be core genes and clusters that seem to be accessory genes
+
+        # They are core if their joint frequency is >= 0.95
+        conn_cluster_cogs_core = samegene_connected_cogs_exp[samegene_connected_cogs_exp['freq_sum'] >= 0.95]
+
+        # They are accessory is their joint frequency is < 0.95
+        conn_cluster_cogs_acc = samegene_connected_cogs_exp[samegene_connected_cogs_exp['freq_sum'] < 0.95]
+
+        cog_columns = [f"COG{i}" for i in range(1, max_clusters + 1)]
+
+        cluster_corecogs_list = []
+        for col in cog_columns:
+            cog_list_a = list(conn_cluster_cogs_core[col])
+            cog_list = list(filter(None, cog_list_a))
+            cluster_corecogs_list.extend(cog_list)
+
+        cluster_corecogs_unique = set(cluster_corecogs_list)
+
+        cog_columns = [f"COG{i}" for i in range(1, max_clusters + 1)]
+
+        cluster_acccogs_list = []
+        for col in cog_columns:
+            cog_list_a = list(conn_cluster_cogs_acc[col])
+            cog_list = list(filter(None, cog_list_a))
+            cluster_acccogs_list.extend(cog_list)
+
+        cluster_acccogs_unique = set(cluster_acccogs_list)
+
+        clarc_summary_path = out_path+"/clarc_results"
+
+        # Check if the directory already exists (create if it doesn't)
+        if not os.path.exists(clarc_summary_path):
+            os.makedirs(clarc_summary_path)
+
+        out_text = clarc_summary_path+'/clarc_cluster_summary.txt'
+        with open(out_text, "a") as file:
+            file.write(f'Core COG clusters: '+f'{len(conn_cluster_cogs_core)}\n')
+            file.write(f'Unique COGs in core clusters: '+f'{len(cluster_corecogs_unique)}\n')
+            file.write(f'Accessory COG clusters: '+f'{len(conn_cluster_cogs_acc)}\n')
+            file.write(f'Unique COGs in accessory clusters: '+f'{len(cluster_acccogs_unique)}\n')
+
+        core_cluster_path = out_path+"/clarc_results/core_cluster_summary.csv"
+        conn_cluster_cogs_core.to_csv(core_cluster_path, index=False)
+
+        acc_cluster_path = out_path+"/clarc_results/accessory_cluster_summary.csv"
+        conn_cluster_cogs_acc.to_csv(acc_cluster_path, index=False)
+
+        # Eliminate core clusters and join accessory clusters - New presence absence matrix
+
+        conn_cluster_cogs_acc_legend = pd.DataFrame()
+
+        for col in conn_cluster_cogs_acc.columns:
+            if 'freq' not in col:
+                # Add '-' after each COG value
+                conn_cluster_cogs_acc_legend[col] = conn_cluster_cogs_acc[col] + '-'
+
+        # Concatenate COG values with '-' in between
+        conn_cluster_cogs_acc_legend['new_cluster_name_samecog'] = conn_cluster_cogs_acc_legend.fillna('').sum(axis=1)
+
+        for col in conn_cluster_cogs_acc.columns:
+            if 'freq' not in col:
+                conn_cluster_cogs_acc_legend[col] = conn_cluster_cogs_acc[col]
+
+        # Add empty column to dataframe with cog pairs that exclude each other
+        pres_abs_newclusters = pd.DataFrame()
+
+        for index, row in conn_cluster_cogs_acc_legend.iterrows():
+
+            # Get COG names for row and new name
+            cog_columns = [f'COG{i}' for i in range(1, max_clusters+1)]
+            cogs = [row[cog] for cog in cog_columns if pd.notnull(row[cog])]
+            new_name = row['new_cluster_name_samecog']
+
+            # Initialize dataframe
+            df = pan_acc[cogs].copy()  # Use .copy() to avoid SettingWithCopyWarning
+
+            # Concatenate COGs
+            df[new_name] = df.sum(axis=1)
+            pres_abs_newclusters = pd.concat([pres_abs_newclusters, df[new_name]], axis=1)
+
+        # Now we want to drop the COGs in the clusters we just condensed and add the presence absence info of the newly defined clusters
+
+        # Drop old redundant COGs from presence absence matrix
+        nonredundant_presabs = pan_acc.drop(columns=cluster_acccogs_unique)
+
+        # Now append new groups
+        samecog_clustered_presabs = pd.concat([nonredundant_presabs, pres_abs_newclusters], axis=1)
+
+        # Now we drop COGs identified as part of core gene clusters
+        samecog_clustered_presabs_nocore = samecog_clustered_presabs.loc[:, ~samecog_clustered_presabs.columns.isin(cluster_corecogs_unique)]
+
+        clarc_presabs_path = out_path+"/clarc_results/clarc_condensed_presence_absence.csv"
+        samecog_clustered_presabs_nocore.to_csv(clarc_presabs_path, index=True)
+
+        # Define the file path
+        core_list_path = out_path+"/clarc_results/core_cluster_cogs.txt"
+
+        # Open the file in write mode
+        with open(core_list_path, "w") as file:
+            # Write each element of the list to the file
+            for item in cluster_corecogs_unique:
+                file.write(item + "\n")  # Add a newline after each item
+
+        # Define the file path
+        acc_list_path = out_path+"/clarc_results/accessory_cluster_cogs.txt"
+
+        # Open the file in write mode
+        with open(acc_list_path, "w") as file:
+            # Write each element of the list to the file
+            for item in cluster_acccogs_unique:
+                file.write(item + "\n")  # Add a newline after each item
+
+        # Get fasta file with the representative sequences of the new accessory gene definitions
+
+        # Get dataframe with all accessory COGs and their length
+
+        def fasta_coglen_dataframe(fasta_file):
+
+            seq_ids = []
+            seq_lengths = []
+
+            for record in SeqIO.parse(fasta_file, "fasta"):
+
+                seq_ids.append(record.id)
+                seq_lengths.append(len(record.seq))
+
+            df = pd.DataFrame({"cog_name": seq_ids, "length": seq_lengths})
+
+            return df
+
+        # Get dataframe with length of each accessory cog
+
+        # Provide the path to your fasta file
+        original_fasta_path = out_path+'/accessory_rep_seqs.fasta'
+
+        # Parse the fasta file and create the DataFrame
+        cog_len = fasta_coglen_dataframe(original_fasta_path)
+
+        conn_cluster_cogs_acc_legend = conn_cluster_cogs_acc_legend.reset_index(drop=True)
+
+        # Identify longest COG in each accessory cluster
+
+        for index, row in conn_cluster_cogs_acc_legend.iterrows():
+
+            longest_cog = ''
+            max_len = 0
+
+            for i in range(1, max_clusters):
+
+                cog = row[f'COG{i}']
+
+                if cog:
+
+                    len_row = cog_len.query(f"cog_name == '{cog}'")
+                    leng = len_row['length'].values[0]
+
+                    if leng > max_len:
+
+                        longest_cog = cog
+                        max_len = leng
+
+                conn_cluster_cogs_acc_legend.at[index, 'longest_cog'] = longest_cog
+
+        # Get important lists
+        longest_acc_cogs = list(conn_cluster_cogs_acc_legend['longest_cog'])
+
+        # Get fasta file with the representative sequences for the CLARC COG definitions
+
+        # The COGs identified as part of core clusters will be dropped
+
+        # The COGs identified as part of an accessory cluster, but not the longest cog will be dropped
+
+        # The COGs identified as part of an accessory cluster and representing the longest COG will have their name reannotated with the cluster name
+
+        clarc_fasta_path = out_path+'/clarc_results/clarc_acc_cog_seqs.fasta'
+
+        fin = open(original_fasta_path, 'r')
+        fout = open(clarc_fasta_path, 'w')
+
+        for record in SeqIO.parse(fin,'fasta'):
+
+            cog_name = record.id
+
+            if cog_name not in cluster_corecogs_unique:
+
+                if cog_name in cluster_acccogs_unique:
+
+                    if cog_name in longest_acc_cogs:
+
+                        x = conn_cluster_cogs_acc_legend.query(f" longest_cog == '{cog_name}'")
+                        cluster_name = x['new_cluster_name_samecog'].values[0]
+                        record.id = cluster_name
+                        SeqIO.write(record, fout, 'fasta')
+
                 else:
-                    x = cog_freq_df.query(f"COG == '{cog}'")
-                    x = x.reset_index()
-                    freq = x['freq'][0] if not x.empty else None
-                    samegene_connected_cogs_exp.at[j, f'freq_cog{i}'] = freq
-
-        return samegene_connected_cogs_exp
-
-    max_clusters = samegene_connected_cogs['group_length'][0]
-    samegene_connected_cogs_exp = summarize_clusters(samegene_connected_cogs, cog_freq_df, max_clusters)
-
-    # Get the list of column names
-    frequency_columns = [f"freq_cog{i}" for i in range(1, max_clusters+1)]
-
-    # Add freq sum
-    samegene_connected_cogs_exp["freq_sum"] = samegene_connected_cogs_exp[frequency_columns].sum(axis=1)
-
-    # Now get clusters that seem to be core genes and clusters that seem to be accessory genes
-
-    # They are core if their joint frequency is >= 0.95
-    conn_cluster_cogs_core = samegene_connected_cogs_exp[samegene_connected_cogs_exp['freq_sum'] >= 0.95]
-
-    # They are accessory is their joint frequency is < 0.95
-    conn_cluster_cogs_acc = samegene_connected_cogs_exp[samegene_connected_cogs_exp['freq_sum'] < 0.95]
-
-    cog_columns = [f"COG{i}" for i in range(1, max_clusters + 1)]
-
-    cluster_corecogs_list = []
-    for col in cog_columns:
-        cog_list_a = list(conn_cluster_cogs_core[col])
-        cog_list = list(filter(None, cog_list_a))
-        cluster_corecogs_list.extend(cog_list)
-
-    cluster_corecogs_unique = set(cluster_corecogs_list)
-
-    cog_columns = [f"COG{i}" for i in range(1, max_clusters + 1)]
-
-    cluster_acccogs_list = []
-    for col in cog_columns:
-        cog_list_a = list(conn_cluster_cogs_acc[col])
-        cog_list = list(filter(None, cog_list_a))
-        cluster_acccogs_list.extend(cog_list)
-
-    cluster_acccogs_unique = set(cluster_acccogs_list)
-
-    clarc_summary_path = out_path+"/clarc_results"
-
-    # Check if the directory already exists (create if it doesn't)
-    if not os.path.exists(clarc_summary_path):
-        os.makedirs(clarc_summary_path)
-
-    out_text = clarc_summary_path+'/clarc_cluster_summary.txt'
-    with open(out_text, "a") as file:
-        file.write(f'Core COG clusters: '+f'{len(conn_cluster_cogs_core)}\n')
-        file.write(f'Unique COGs in core clusters: '+f'{len(cluster_corecogs_unique)}\n')
-        file.write(f'Accessory COG clusters: '+f'{len(conn_cluster_cogs_acc)}\n')
-        file.write(f'Unique COGs in accessory clusters: '+f'{len(cluster_acccogs_unique)}\n')
-
-    core_cluster_path = out_path+"/clarc_results/core_cluster_summary.csv"
-    conn_cluster_cogs_core.to_csv(core_cluster_path, index=False)
-
-    acc_cluster_path = out_path+"/clarc_results/accessory_cluster_summary.csv"
-    conn_cluster_cogs_acc.to_csv(acc_cluster_path, index=False)
-
-    # Eliminate core clusters and join accessory clusters - New presence absence matrix
-
-    conn_cluster_cogs_acc_legend = pd.DataFrame()
-
-    for col in conn_cluster_cogs_acc.columns:
-        if 'freq' not in col:
-            # Add '-' after each COG value
-            conn_cluster_cogs_acc_legend[col] = conn_cluster_cogs_acc[col] + '-'
-
-    # Concatenate COG values with '-' in between
-    conn_cluster_cogs_acc_legend['new_cluster_name_samecog'] = conn_cluster_cogs_acc_legend.fillna('').sum(axis=1)
-
-    for col in conn_cluster_cogs_acc.columns:
-        if 'freq' not in col:
-            conn_cluster_cogs_acc_legend[col] = conn_cluster_cogs_acc[col]
-
-    # Add empty column to dataframe with cog pairs that exclude each other
-    pres_abs_newclusters = pd.DataFrame()
-
-    for index, row in conn_cluster_cogs_acc_legend.iterrows():
-
-        # Get COG names for row and new name
-        cog_columns = [f'COG{i}' for i in range(1, max_clusters+1)]
-        cogs = [row[cog] for cog in cog_columns if pd.notnull(row[cog])]
-        new_name = row['new_cluster_name_samecog']
-
-        # Initialize dataframe
-        df = pan_acc[cogs].copy()  # Use .copy() to avoid SettingWithCopyWarning
-
-        # Concatenate COGs
-        df[new_name] = df.sum(axis=1)
-        pres_abs_newclusters = pd.concat([pres_abs_newclusters, df[new_name]], axis=1)
-
-    # Now we want to drop the COGs in the clusters we just condensed and add the presence absence info of the newly defined clusters
-
-    # Drop old redundant COGs from presence absence matrix
-    nonredundant_presabs = pan_acc.drop(columns=cluster_acccogs_unique)
-
-    # Now append new groups
-    samecog_clustered_presabs = pd.concat([nonredundant_presabs, pres_abs_newclusters], axis=1)
-
-    # Now we drop COGs identified as part of core gene clusters
-    samecog_clustered_presabs_nocore = samecog_clustered_presabs.loc[:, ~samecog_clustered_presabs.columns.isin(cluster_corecogs_unique)]
-
-    clarc_presabs_path = out_path+"/clarc_results/clarc_condensed_presence_absence.csv"
-    samecog_clustered_presabs_nocore.to_csv(clarc_presabs_path, index=True)
-
-    # Define the file path
-    core_list_path = out_path+"/clarc_results/core_cluster_cogs.txt"
-
-    # Open the file in write mode
-    with open(core_list_path, "w") as file:
-        # Write each element of the list to the file
-        for item in cluster_corecogs_unique:
-            file.write(item + "\n")  # Add a newline after each item
-
-    # Define the file path
-    acc_list_path = out_path+"/clarc_results/accessory_cluster_cogs.txt"
-
-    # Open the file in write mode
-    with open(acc_list_path, "w") as file:
-        # Write each element of the list to the file
-        for item in cluster_acccogs_unique:
-            file.write(item + "\n")  # Add a newline after each item
-
-    # Get fasta file with the representative sequences of the new accessory gene definitions
-
-    # Get dataframe with all accessory COGs and their length
-
-    def fasta_coglen_dataframe(fasta_file):
-
-        seq_ids = []
-        seq_lengths = []
-
-        for record in SeqIO.parse(fasta_file, "fasta"):
-
-            seq_ids.append(record.id)
-            seq_lengths.append(len(record.seq))
-
-        df = pd.DataFrame({"cog_name": seq_ids, "length": seq_lengths})
-
-        return df
-
-    # Get dataframe with length of each accessory cog
-
-    # Provide the path to your fasta file
-    original_fasta_path = out_path+'/accessory_rep_seqs.fasta'
-
-    # Parse the fasta file and create the DataFrame
-    cog_len = fasta_coglen_dataframe(original_fasta_path)
-
-    conn_cluster_cogs_acc_legend = conn_cluster_cogs_acc_legend.reset_index(drop=True)
-
-    # Identify longest COG in each accessory cluster
-
-    for index, row in conn_cluster_cogs_acc_legend.iterrows():
-
-        longest_cog = ''
-        max_len = 0
-
-        for i in range(1, max_clusters):
-
-            cog = row[f'COG{i}']
-
-            if cog:
-
-                len_row = cog_len.query(f"cog_name == '{cog}'")
-                leng = len_row['length'].values[0]
-
-                if leng > max_len:
-
-                    longest_cog = cog
-                    max_len = leng
-
-            conn_cluster_cogs_acc_legend.at[index, 'longest_cog'] = longest_cog
-
-    # Get important lists
-    longest_acc_cogs = list(conn_cluster_cogs_acc_legend['longest_cog'])
-
-    # Get fasta file with the representative sequences for the CLARC COG definitions
-
-    # The COGs identified as part of core clusters will be dropped
-
-    # The COGs identified as part of an accessory cluster, but not the longest cog will be dropped
-
-    # The COGs identified as part of an accessory cluster and representing the longest COG will have their name reannotated with the cluster name
-
-    clarc_fasta_path = out_path+'/clarc_results/clarc_acc_cog_seqs.fasta'
-
-    fin = open(original_fasta_path, 'r')
-    fout = open(clarc_fasta_path, 'w')
-
-    for record in SeqIO.parse(fin,'fasta'):
-
-        cog_name = record.id
-
-        if cog_name not in cluster_corecogs_unique:
-
-            if cog_name in cluster_acccogs_unique:
-
-                if cog_name in longest_acc_cogs:
-
-                    x = conn_cluster_cogs_acc_legend.query(f" longest_cog == '{cog_name}'")
-                    cluster_name = x['new_cluster_name_samecog'].values[0]
-                    record.id = cluster_name
                     SeqIO.write(record, fout, 'fasta')
 
-            else:
-                SeqIO.write(record, fout, 'fasta')
-
-    fin.close()
-    fout.close()
+        fin.close()
+        fout.close()
