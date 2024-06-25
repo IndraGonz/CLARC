@@ -126,7 +126,7 @@ In this example, CLARC uses Roary results from a multi-population pangenome buil
 
 ## Full usage
 
-```bash
+```
 Usage:   clarc --input_dir {input data path} --output_dir {output path} [options]
 
 Options: --acc_upper INT   Upper frequency threshold for accessory gene filtering, if not specified default is <= 0.95 (95%)
@@ -142,33 +142,51 @@ Options: --acc_upper INT   Upper frequency threshold for accessory gene filterin
 
 ## Outputs
 
-### ```clarc_results``` folder (main outputs)
+Running clarc will create various subdirectories containing the intermediate files necessary to run the clustering algorithm. These include the linkage matrices created, the eggnog functional annotations of the original accessory COGs and the results of the all vs all BLAST of these accessory COGs. 
 
-#### ```clarc_cluster_summary.txt```
+However, the final results are located in the subdirectory named ```/clarc_results```. In the future I will add an option to suppress the intermediate outputs, and I will update this document when I do. 
 
-#### ```accessory_cluster_cogs.txt``` and ```core_cluster_cogs.txt```
+With that said, let's start by reviewing the final outputs of the pipeline.
 
-#### ```accessory_cluster_summary.csv``` and ```core_cluster_summary.csv```
+### clarc_results folder (main outputs)
 
-#### ```clarc_condensed_presence_absence.csv```
+The ```clarc_results``` will contain various files, as outlined here.
 
-#### ```clarc_acc_cog_seqs.fasta```
+#### clarc_cluster_summary.txt
+
+simple txt file containing a summary of the 'same gene' clusters found by CLARC, if any. It is in this format:
+
+```
+Core COG clusters: X
+Unique COGs in core clusters: X
+Accessory COG clusters: X
+Unique COGs in accessory clusters: X
+```
+
+
+#### accessory_cluster_cogs.txt and core_cluster_cogs.txt
+
+#### accessory_cluster_summary.csv and core_cluster_summary.csv
+
+#### clarc_condensed_presence_absence.csv
+
+#### clarc_acc_cog_seqs.fasta
 
 Additional output files are:
 
-### ```population_accessory_presence_absence.csv```
+### population_accessory_presence_absence.csv
 
 csv file containing the presence absence matrix for the _accessory_ genes within the samples specified in the ```needed_sample_names.txt``` input file. So, only COGs present in between 5-95% of those samples will be included here (if run on default parameters). This is just a filtered output from the original pangenome analysis, before running the CLARC clustering algorithm.
 
-### ```accessory_rep_seqs.fasta```
+### accessory_rep_seqs.fasta
 
 fasta file containing the representative DNA sequences of all _accessory_ COGs identified in the given population of interest. The entries in this file will correspond to the COGs in the ```population_accessory_presence_absence.csv``` output file. The COG name (as given by the pangenome tool) will be the fasta entry identifier. 
 
-### ```accessory_rep_protein_seqs.fasta```
+### accessory_rep_protein_seqs.fasta
 
 fasta file containing the representative protein sequences of all accessory COGs identified in the given population of interest. It is just the entried in the ```accessory_rep_seqs.fasta``` file translated from DNA to protein sequences. The pipeline will internally use these protein sequences to functionally annotate the accessory COGs using the EggNOG database.
 
-### ```population_core_presence_absence.csv```
+### population_core_presence_absence.csv
 
 csv file containing the presence absence matrix for the _core_ genes within the samples specified in the ```needed_sample_names.txt``` input file. So, only COGs present in over 95% of those samples will be included here (if run on default parameters). This is just a filtered output from the original pangenome analysis, before running the CLARC clustering algorithm. Essentially it it the ```population_accessory_presence_absence.csv``` output, but for core genes instead of accessory.
 
