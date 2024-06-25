@@ -148,7 +148,7 @@ However, the final results are located in the subdirectory named ```/clarc_resul
 
 With that said, let's start by reviewing the final outputs of the pipeline.
 
-### clarc_results folder (main outputs)
+### clarc_results folder (final outputs)
 
 The ```clarc_results``` will contain various files, as outlined here.
 
@@ -163,56 +163,105 @@ The ```clarc_results``` will contain various files, as outlined here.
       Unique COGs in accessory clusters: X
       ```
       
-#### accessory_cluster_cogs.txt and core_cluster_cogs.txt
+   - accessory_cluster_cogs.txt and core_cluster_cogs.txt
 
-#### accessory_cluster_summary.csv and core_cluster_summary.csv
+     txt files that include a list of the unique COGs present in the 
 
-#### clarc_condensed_presence_absence.csv
+   - accessory_cluster_summary.csv and core_cluster_summary.csv
 
-#### clarc_acc_cog_seqs.fasta
+   - clarc_condensed_presence_absence.csv
 
-Additional output files are:
+   - clarc_acc_cog_seqs.fasta
 
-### population_accessory_presence_absence.csv
+Intermediate output files are:
 
-csv file containing the presence absence matrix for the _accessory_ genes within the samples specified in the ```needed_sample_names.txt``` input file. So, only COGs present in between 5-95% of those samples will be included here (if run on default parameters). This is just a filtered output from the original pangenome analysis, before running the CLARC clustering algorithm.
+For the filtering step, 5 files are created:
 
-### accessory_rep_seqs.fasta
+   - population_accessory_presence_absence.csv
 
-fasta file containing the representative DNA sequences of all _accessory_ COGs identified in the given population of interest. The entries in this file will correspond to the COGs in the ```population_accessory_presence_absence.csv``` output file. The COG name (as given by the pangenome tool) will be the fasta entry identifier. 
+      csv file containing the presence absence matrix for the _accessory_ genes within the samples specified in the ```needed_sample_names.txt``` input file. So, only COGs present in between          5-95% of those samples will be included here (if run on default parameters). This is just a filtered output from the original pangenome analysis, before running the CLARC clustering             algorithm.
+     
+   - accessory_rep_seqs.fasta
 
-### accessory_rep_protein_seqs.fasta
+      fasta file containing the representative DNA sequences of all _accessory_ COGs identified in the given population of interest. The entries in this file will correspond to the COGs in the        ```population_accessory_presence_absence.csv``` output file. The COG name (as given by the pangenome tool) will be the fasta entry identifier. 
 
-fasta file containing the representative protein sequences of all accessory COGs identified in the given population of interest. It is just the entried in the ```accessory_rep_seqs.fasta``` file translated from DNA to protein sequences. The pipeline will internally use these protein sequences to functionally annotate the accessory COGs using the EggNOG database.
+   - accessory_rep_protein_seqs.fasta
 
-### population_core_presence_absence.csv
+      fasta file containing the representative protein sequences of all accessory COGs identified in the given population of interest. It is just the entries in the                                    ```accessory_rep_seqs.fasta``` file translated from DNA to protein sequences. The pipeline will internally use these protein sequences to functionally annotate the accessory COGs using          the EggNOG database.
 
-csv file containing the presence absence matrix for the _core_ genes within the samples specified in the ```needed_sample_names.txt``` input file. So, only COGs present in over 95% of those samples will be included here (if run on default parameters). This is just a filtered output from the original pangenome analysis, before running the CLARC clustering algorithm. Essentially it it the ```population_accessory_presence_absence.csv``` output, but for core genes instead of accessory.
+   - population_core_presence_absence.csv
 
-### core_rep_seqs.fasta
+      csv file containing the presence absence matrix for the _core_ genes within the samples specified in the ```needed_sample_names.txt``` input file. So, only COGs present in over 95% of           those samples will be included here (if run on default parameters). This is just a filtered output from the original pangenome analysis, before running the CLARC clustering algorithm.           Essentially it it the ```population_accessory_presence_absence.csv``` output, but for core genes instead of accessory.
 
-Like, the ```accessory_rep_seqs.fasta``` output file, this is a fasta file containing the representative DNA sequences of all _core_ COGs identified in the given population of interest.
+   - core_rep_seqs.fasta
 
-
-
-### population_accessory_presence_absence.csv
-
-### accessory_rep_seqs.fasta
-
-### accessory_rep_protein_seqs.fasta
-
-### population_core_presence_absence.csv
-
-### core_rep_seqs.fasta
+      Like, the ```accessory_rep_seqs.fasta``` output file, this is a fasta file containing the representative DNA sequences of all _core_ COGs identified in the given population of interest.
 
 ### linkage folder
 
+   - acc_pXX_matrix.csv
+
+     csv files that are pairwise matrices with counts of genomes that show the different states of co-occurrence between every possible pair of accessory COGs. The possible states are: genomes       where both COGs are observed together (P11), genomes where neither COG is observed (P00), or genomes where only one of the COGs is observed (P10 and P01). Thus, 4 of these matrices are          generated, one per each state.
+
+   - acc_linkage_co-occur.csv
+
+     csv file containing To be added
+
 ### acc_blastn folder
 
+Various files are created here, since a BLAST database is built from the accessory cog sequence fasta file. However the only relevant file is the one containing the results for the all vs. all accessory COG BLAST:
+
+   - blastn_acccogs_allvall.tsv
+
+     tsv file of the BLAST results with 12 columns, with the following headers:
+
+      ```python
+     ['query_seq_ID', 'subject_seq_ID', 'percentage_indentical_matches', 'align_length','num_mismatches','gap_open','align_start_query','align_end_query','align_start_subject',                       'align_end_subject','e-value','bit_score']
+      ```
+      
 ### eggnog folder
 
+   - acc_cog_eggnog_annotations.csv
 
+     csv file containing three columns that include the inputs and results of the EggNOG functional annotation. The first column in the accessory COG name, the second is the protein sequence         that was queried, and the third column is the EggNOG functional group identified for that accessory COG.
 
+     Only the abbreviation for each COG functional group is shown, so here is a table including the meaning of those abbreviations:
+
+     | Abbreviation | Function |
+     |--------------|----------|
+     | A | RNA processing and modification |
+     | B | Chromatin Structure and dynamics |
+     | C | Energy production and conversion |
+     | D | Cell cycle control and mitosis |
+     | E | Amino Acid metabolis and transport |
+     | F | Nucleotide metabolism and transport |
+     | G | Carbohydrate metabolism and transport |
+     | H | Coenzyme metabolism |
+     | I | Lipid metabolism |
+     | J | Translation |
+     | K | Transcription |
+     | L | Replication and repair |
+     | M | Cell wall/membrane/envelop biogenesis |
+     | N | Cell motility |
+     | O | Post-translational modification, protein turnover, chaperone functions |
+     | P | Inorganic ion transport and metabolism |
+     | Q | Secondary Structure |
+     | T | Signal Transduction |
+     | U | Intracellular trafficing and secretion |
+     | V | Defense mechanisms |
+     | Y | Nuclear structure |
+     | Z | Cytoskeleton |
+     | R | General functional prediction only |
+     | S | Function unknown |
+     | NA | No annotation - Protein had a hit in the EggNOG database, but the function is not annotated |
+     | NH | No hit - Protein had no hit in the EggNOG database |
+     | Mixed | Hit with multiple functions found |
+
+     More information about these functional group classifications can be found in the [COG Database NIH website](https://www.ncbi.nlm.nih.gov/research/cog/#).
+
+   - eggnog_group_cog_names.csv
+
+These functional annotation files (and all other intermediate files) are created for the accessory genes filtered from the original pangenome analysis results. However, one of the conditions
 
 ## Raising issues
 
@@ -220,5 +269,5 @@ If you have trouble with any of the steps shown here, please let me know! You ca
 
 ## Citing
 
-🚧🚧 Coming soon 🚧🚧
+🚧🚧 Coming soon, send me good vibes if you can spare them 🚧🚧
 
