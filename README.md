@@ -162,20 +162,26 @@ The ```clarc_results``` will contain various files, as outlined here.
       Accessory COG clusters: X
       Unique COGs in accessory clusters: X
       ```
+
+      If CLARC finds no clusters, then this file will just contain a message indicating that no clusters were found.
       
+   - clarc_condensed_presence_absence.csv
+
+     csv file containing the presence absence matrix for the CLARC re-defined accessory COG definitions. COGs in core clusters are removed and those in accessory clusters are collapsed into a        new cluster. The name of the new clusters will just be the named of the original COGs forming the cluster, followed by a slash. For example: COG1/COG2/COG3/ for a 3 COG cluster identified       by CLARC.
+     
+   - clarc_acc_cog_seqs.fasta
+     
    - accessory_cluster_cogs.txt and core_cluster_cogs.txt
 
-     txt files that include a list of the unique COGs present in the 
+     txt files that include a list of the unique original COGs present in the accessory and core clusters identified by CLARC. No information on the actual clusters (which COGs are connected)        is included here, just the list of COGs that belong to any cluster.
 
    - accessory_cluster_summary.csv and core_cluster_summary.csv
 
-   - clarc_condensed_presence_absence.csv
-
-   - clarc_acc_cog_seqs.fasta
-
+   csv file specifying the compositions of each accessory and core cluster identified by CLARC. The number of columns will depend on the number of members in the largest cluster. The original      frequency in the population of each COG member is included (freq_cogX) as well as the new frequency of the re-defined cluster (freq_sum).
+   
 Intermediate output files are:
 
-For the filtering step, 5 files are created:
+In the filtering step, 5 files are created:
 
    - population_accessory_presence_absence.csv
 
@@ -205,7 +211,15 @@ For the filtering step, 5 files are created:
 
    - acc_linkage_co-occur.csv
 
-     csv file containing To be added
+     csv file containing a pairwise metric of linkage. It is internally calculated using the counts in the previous ```acc_pXX_matrix.csv``` matrices, with the following equation:
+
+     \( L = \log \left( \frac{P_{00} \cdot P_{11}}{P_{10} \cdot P_{01}} \right) \)
+
+     This provides a normalized linkage metric where:
+     
+        - L > 0 implies a positive correlation between the genes in the pair (co-occur often)
+        - L < 0 implies a negative correlation between the genes in the pair (exclude each other)
+        - L = 0 implies no correlation between the genes in the pair
 
 ### acc_blastn folder
 
@@ -261,7 +275,9 @@ Various files are created here, since a BLAST database is built from the accesso
 
    - eggnog_group_cog_names.csv
 
-These functional annotation files (and all other intermediate files) are created for the accessory genes filtered from the original pangenome analysis results. However, one of the conditions
+     csv containing a summary of the COGs found in each category. The column headers are the categories, and each column has the list of COGs identified in that category. 
+
+These functional annotation files (and all other intermediate files) are created for the accessory genes filtered from the original pangenome analysis results. However, one of the conditions that CLARC uses to create the same gene clusters is that the members of the cluster must have the same functional group. So, using these annotations the user can also obtain the functional annotated for the new CLARC accessory gene definitions.
 
 ## Raising issues
 
