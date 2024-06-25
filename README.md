@@ -170,6 +170,8 @@ The ```clarc_results``` will contain various files, as outlined here.
      csv file containing the presence absence matrix for the CLARC re-defined accessory COG definitions. COGs in core clusters are removed and those in accessory clusters are collapsed into a        new cluster. The name of the new clusters will just be the named of the original COGs forming the cluster, followed by a slash. For example: COG1/COG2/COG3/ for a 3 COG cluster identified       by CLARC.
      
    - clarc_acc_cog_seqs.fasta
+
+     fasta file containing the representative sequences of the new _accessory_ COG definitions. The entries in this file will correspond to the COGs in the                                            ```clarc_condensed_presence_absence.csv``` output file. The COG name will be the fasta entry identifier, with clusters having the appropiate cluster name. For clusters, the longest              sequence between the individual representative sequences of the individual COGs is chosen as the cluster representative sequence.
      
    - accessory_cluster_cogs.txt and core_cluster_cogs.txt
 
