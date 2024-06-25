@@ -152,18 +152,17 @@ With that said, let's start by reviewing the final outputs of the pipeline.
 
 The ```clarc_results``` will contain various files, as outlined here.
 
-#### clarc_cluster_summary.txt
+   - clarc_cluster_summary.txt
 
-simple txt file containing a summary of the 'same gene' clusters found by CLARC, if any. It is in this format:
+      simple txt file containing a summary of the 'same gene' clusters found by CLARC, if any. It is in this format:
 
-```
-Core COG clusters: X
-Unique COGs in core clusters: X
-Accessory COG clusters: X
-Unique COGs in accessory clusters: X
-```
-
-
+      ```
+      Core COG clusters: X
+      Unique COGs in core clusters: X
+      Accessory COG clusters: X
+      Unique COGs in accessory clusters: X
+      ```
+      
 #### accessory_cluster_cogs.txt and core_cluster_cogs.txt
 
 #### accessory_cluster_summary.csv and core_cluster_summary.csv
