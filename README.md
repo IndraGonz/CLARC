@@ -215,7 +215,7 @@ In the filtering step (before CLARC re-definition), 5 files are created:
 
      csv file containing a pairwise metric of linkage. It is internally calculated using the counts in the previous ```acc_pXX_matrix.csv``` matrices, with the following equation:
 
-     \( L = \log \left( \frac{P_{00} \cdot P_{11}}{P_{10} \cdot P_{01}} \right) \)
+     <img width="206" alt="image" src="https://github.com/IndraGonz/CLARC/assets/70214497/49f8b26f-f9b9-4463-b12f-92c7d1895f58">
 
      This provides a normalized linkage metric where:
      
