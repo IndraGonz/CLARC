@@ -232,7 +232,7 @@ Various files are created here, since a BLAST database is built from the accesso
      tsv file of the BLAST results with 12 columns, with the following headers:
 
       ```python
-     ['query_seq_ID', 'subject_seq_ID', 'percentage_indentical_matches', 'align_length','num_mismatches','gap_open','align_start_query','align_end_query','align_start_subject',                       'align_end_subject','e-value','bit_score']
+     ['query_seq_ID', 'subject_seq_ID', 'percentage_indentical_matches', 'align_length','num_mismatches','gap_open','align_start_query','align_end_query','align_start_subject', 'align_end_subject','e-value','bit_score']
       ```
       
 ### eggnog folder
