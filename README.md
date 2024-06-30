@@ -1,4 +1,4 @@
-# Connected Linkage and Alignment Redefinition of COGs (CLARC)
+# CLARC - Connected Linkage and Alignment Redefinition of COGs
 
 <!-- Using HTML for more control over the size -->
 <img src="https://github.com/IndraGonz/CLARC/blob/main/CLARC.egg-info/CLARC_logo.svg" alt="CLARC logo" width="450" height="270">
