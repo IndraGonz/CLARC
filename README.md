@@ -1,5 +1,8 @@
 # Connected Linkage and Alignment Redefinition of COGs (CLARC)
 
+<!-- Using HTML for more control over the size -->
+<img src="https://github.com/IndraGonz/CLARC/blob/main/CLARC.egg-info/CLARC_logo.svg" alt="CLARC logo" width="450" height="270">
+
 A tool that uses sequence identity, within-population linkage patterns and functional annotations to identify and reduce the over-splitting of genes into multiple clusters of orthologous genes (COGs) in a pangenome analysis. 
 
 ## Table of Contents
