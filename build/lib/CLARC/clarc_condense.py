@@ -5,6 +5,8 @@
 
 # Here we use linkage, functional annotations and sequence identity to identify clusters of COGs that are the same gene.
 
+# ## Import necessary packages
+
 import pandas as pd
 import numpy as np
 import scipy as scipy
@@ -19,13 +21,12 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 import os
 import sys
+import shutil
 
 
-# # Import linkage results
+# ## Identify CLARC clusters, condense them and generate output files
 
-def clarc_cleaning(out_path):
-
-    # Get list of COG pairs that do not co-occur within the dataset
+def clarc_cleaning(in_path, out_path, panaroo_true, acc_upper, acc_lower, core_lower):
 
     # Import counts for COG pairs that co-occur
     linkage_p11_path = out_path+"/linkage/acc_p11_matrix.csv"
@@ -196,10 +197,11 @@ def clarc_cleaning(out_path):
 
         out_text = clarc_summary_path+'/clarc_cluster_summary.txt'
         with open(out_text, "a") as file:
-            file.write(f'Core COG clusters: 0')
-            file.write(f'Unique COGs in core clusters: 0')
-            file.write(f'Accessory COG clusters: 0')
-            file.write(f'Unique COGs in accessory clusters: 0')
+            file.write(f'Total COG clusters identified by CLARC: '+f'{0}\n')
+            file.write(f'Core COG clusters: '+f'{0}\n')
+            file.write(f'Unique COGs in core clusters: '+f'{0}\n')
+            file.write(f'Accessory COG clusters: '+f'{0}\n')
+            file.write(f'Unique COGs in accessory clusters: '+f'{0}\n')
 
         sys.exit("No CLARC clusters found")
 
@@ -237,6 +239,16 @@ def clarc_cleaning(out_path):
         # Add freq sum
         samegene_connected_cogs_exp["freq_sum"] = samegene_connected_cogs_exp[frequency_columns].sum(axis=1)
 
+        cog_columns = [f"COG{i}" for i in range(1, max_clusters + 1)]
+
+        cluster_cogs_list = []
+        for col in cog_columns:
+            cog_list_a = list(samegene_connected_cogs_exp[col])
+            cog_list = list(filter(None, cog_list_a))
+            cluster_cogs_list.extend(cog_list)
+
+        cluster_cogs_unique = set(cluster_cogs_list)
+
         # Now get clusters that seem to be core genes and clusters that seem to be accessory genes
 
         # They are core if their joint frequency is >= 0.95
@@ -273,6 +285,7 @@ def clarc_cleaning(out_path):
 
         out_text = clarc_summary_path+'/clarc_cluster_summary.txt'
         with open(out_text, "a") as file:
+            file.write(f'Total COG clusters identified by CLARC: '+f'{len(samegene_connected_cogs_exp)}\n')
             file.write(f'Core COG clusters: '+f'{len(conn_cluster_cogs_core)}\n')
             file.write(f'Unique COGs in core clusters: '+f'{len(cluster_corecogs_unique)}\n')
             file.write(f'Accessory COG clusters: '+f'{len(conn_cluster_cogs_acc)}\n')
@@ -284,52 +297,165 @@ def clarc_cleaning(out_path):
         acc_cluster_path = out_path+"/clarc_results/accessory_cluster_summary.csv"
         conn_cluster_cogs_acc.to_csv(acc_cluster_path, index=False)
 
-        # Eliminate core clusters and join accessory clusters - New presence absence matrix
+        # Condense all identified clusters in original pangenome results - New presence absence matrix
 
-        conn_cluster_cogs_acc_legend = pd.DataFrame()
+        conn_cluster_cogs_legend = pd.DataFrame()
 
-        for col in conn_cluster_cogs_acc.columns:
+        for col in samegene_connected_cogs_exp.columns:
             if 'freq' not in col:
                 # Add '-' after each COG value
-                conn_cluster_cogs_acc_legend[col] = conn_cluster_cogs_acc[col] + '-'
+                conn_cluster_cogs_legend[col] = samegene_connected_cogs_exp[col] + '-'
 
-        # Concatenate COG values with '-' in between
-        conn_cluster_cogs_acc_legend['new_cluster_name_samecog'] = conn_cluster_cogs_acc_legend.fillna('').sum(axis=1)
+       # Concatenate COG values with '-' in between
+        conn_cluster_cogs_legend['new_cluster_name_samecog'] = conn_cluster_cogs_legend.fillna('').sum(axis=1)
 
-        for col in conn_cluster_cogs_acc.columns:
+        for col in samegene_connected_cogs_exp.columns:
             if 'freq' not in col:
-                conn_cluster_cogs_acc_legend[col] = conn_cluster_cogs_acc[col]
+                conn_cluster_cogs_legend[col] = samegene_connected_cogs_exp[col]
+
+        # Now we want to drop the COGs in the clusters we just condensed and add the presence absence info of the newly defined clusters
+
+        # Import original presence absence matrix results and filter them to generate cleaner presence absence matrix (but do NOT filter for core or accessory)
+        # The filtering will depend on whether the input is from Roary or Panaroo
+
+        if panaroo_true == 0:
+
+            pres_abs_path = in_path+'/gene_presence_absence.csv'
+
+            # Import output pres abs
+            roary_all_c = pd.read_csv(pres_abs_path, low_memory=False)
+
+            # Get list of Roary output names in a list
+            panroary_ids_list =  list(roary_all_c["Gene"])
+
+            # First round of filtering by fragment length >150bp OR general isolate frequency >10%
+
+            tenp = (roary_all_c.shape[1]-14)/10 # Counting number of isolates (first 14 columns are metadata)
+
+            roary_onefilt = roary_all_c[(roary_all_c['Avg group size nuc'] >= 150) | (roary_all_c['No. isolates'] >= tenp)]
+
+            # Now make gene names the indeces
+            roary_onefilt.set_index('Gene', inplace=True)
+
+            # Drop all columns that are not an isolate
+            roary_isol = roary_onefilt.iloc[:,13:]
+
+            # Now replace NaN values for 0 and any other value for 1
+            roary_isol[~roary_isol.isnull()] = 1
+            roary_isol[roary_isol.isnull()] = 0
+
+            # Switch rows to columns for ease
+            pres_abs_isol = roary_isol.transpose()
+            pres_abs_isol.index.name='Accession'
+
+        elif panaroo_true == 1:
+
+            pres_abs_path = in_path+'/gene_presence_absence_roary.csv'
+
+            # Import and filter panaroo results
+            panaroo_all_c = pd.read_csv(pres_abs_path, low_memory=False)
+
+            # Get list of Roary output names in a list
+            panaroo_ids_list =  list(panaroo_all_c["Gene"])
+
+            # First round of filtering by fragment length >150bp OR general isolate frequency >10%
+
+            tenp = (panaroo_all_c.shape[1]-14)/10 # Counting number of isolates (first 14 columns are metadata)
+
+            panaroo_onefilt = panaroo_all_c[(panaroo_all_c['Avg group size nuc'] >= 150) | (panaroo_all_c['No. isolates'] >= tenp)]
+
+            # Now make gene names the indeces
+            panaroo_onefilt.set_index('Gene', inplace=True)
+
+            # Drop all columns that are not an isolate
+            panaroo_isol = panaroo_onefilt.iloc[:,13:]
+
+            # Now replace NaN values for 0 and any other value for 1
+            panaroo_isol[~panaroo_isol.isnull()] = 1
+            panaroo_isol[panaroo_isol.isnull()] = 0
+
+            # Switch rows to columns for ease
+            pres_abs_isol = panaroo_isol.transpose()
+            pres_abs_isol.index.name='Accession'
 
         # Add empty column to dataframe with cog pairs that exclude each other
         pres_abs_newclusters = pd.DataFrame()
 
-        for index, row in conn_cluster_cogs_acc_legend.iterrows():
+        for index, row in conn_cluster_cogs_legend.iterrows():
 
             # Get COG names for row and new name
             cog_columns = [f'COG{i}' for i in range(1, max_clusters+1)]
             cogs = [row[cog] for cog in cog_columns if pd.notnull(row[cog])]
             new_name = row['new_cluster_name_samecog']
 
-            # Initialize dataframe
-            df = pan_acc[cogs].copy()  # Use .copy() to avoid SettingWithCopyWarning
+         # Initialize dataframe
+            df = pres_abs_isol[cogs].copy()  # Use .copy() to avoid SettingWithCopyWarning
 
             # Concatenate COGs
             df[new_name] = df.sum(axis=1)
             pres_abs_newclusters = pd.concat([pres_abs_newclusters, df[new_name]], axis=1)
+            # Since only the linkage of a specific subpopulation might be being used, if the the COGs coexist in any other sample then they are counted as present
+            pres_abs_newclusters[pres_abs_newclusters > 1] = 1
 
-        # Now we want to drop the COGs in the clusters we just condensed and add the presence absence info of the newly defined clusters
-
-        # Drop old redundant COGs from presence absence matrix
-        nonredundant_presabs = pan_acc.drop(columns=cluster_acccogs_unique)
+        # Drop cluster COGs from presence absence matrix
+        nonredundant_presabs = pres_abs_isol.drop(columns=cluster_cogs_unique)
 
         # Now append new groups
         samecog_clustered_presabs = pd.concat([nonredundant_presabs, pres_abs_newclusters], axis=1)
 
-        # Now we drop COGs identified as part of core gene clusters
-        samecog_clustered_presabs_nocore = samecog_clustered_presabs.loc[:, ~samecog_clustered_presabs.columns.isin(cluster_corecogs_unique)]
+        # We save the output
+        clarc_all_condense_path = out_path+'/clarc_results/clarc_condensed_gene_presence_absence.csv'
+        samecog_clustered_presabs.to_csv(clarc_all_condense_path, index=True)
 
-        clarc_presabs_path = out_path+"/clarc_results/clarc_condensed_presence_absence.csv"
-        samecog_clustered_presabs_nocore.to_csv(clarc_presabs_path, index=True)
+        # Awesome, now we can filter again for accessory and core genes
+
+        sample_needed_path = in_path+'/needed_sample_names.txt'
+
+        # Get list of sample names in the subpopulation to analyse
+        with open(sample_needed_path, 'r') as file:
+            acc_needed_list = file.read().splitlines()
+
+        # Get only isolates in the list
+        genefreq_mat_filt = samecog_clustered_presabs[samecog_clustered_presabs.index.isin(acc_needed_list)]
+
+        # Now we filter by frequency per each dataset (this can change depending on the datasets we want to include)
+
+        # Write function that loops through each gene column and returns the frequency in the dataframe
+        def get_freq(dataframe):
+
+            cog_list = []
+            freq_list = []
+
+            for element in dataframe.columns:
+
+                freq_dataframe = pd.DataFrame()
+                cog_freq = (dataframe[element].sum())/(dataframe.shape[0])
+
+                cog_list.append(element)
+                freq_list.append(cog_freq)
+
+            freq_dataframe['COG_name'] = cog_list
+            freq_dataframe['freq'] = freq_list
+
+            return(freq_dataframe)
+
+        # Get list of genes and their frequency for desired population
+
+        freq_cog = get_freq(genefreq_mat_filt)
+
+        # Now filter to only keep cogs with frequency between set thresholds, default between 5 and 95% in the given sample subset
+        acc_cog = freq_cog.loc[(freq_cog['freq'] >= acc_lower) & (freq_cog['freq'] <= acc_upper)]
+
+        # Now filter to only keep cogs with frequency over set threshold, default over 95% in the given sample subset
+        core_cog = freq_cog.loc[(freq_cog['freq'] > core_lower)]
+
+        # Get the number of accessory cogs per dataset
+        acccog_num = acc_cog.shape[0]
+        corecog_num = core_cog.shape[0]
+
+        # Get accessory cog names as lists
+        acccog_name_list = list(acc_cog["COG_name"])
+        corecog_name_list = list(core_cog["COG_name"])
 
         # Define the file path
         core_list_path = out_path+"/clarc_results/core_cluster_cogs.txt"
@@ -349,8 +475,18 @@ def clarc_cleaning(out_path):
             for item in cluster_acccogs_unique:
                 file.write(item + "\n")  # Add a newline after each item
 
-        # Get fasta file with the representative sequences of the new accessory gene definitions
+        # Only get presence absence matrix for accessory genes
+        genefreq_meta_filt_acc = genefreq_mat_filt[genefreq_mat_filt.columns[genefreq_mat_filt.columns.isin(acccog_name_list)]]
+        genefreq_meta_filt_core = genefreq_mat_filt[genefreq_mat_filt.columns[genefreq_mat_filt.columns.isin(corecog_name_list)]]
 
+        ## Export results to output folder
+        acc_path = out_path+'/clarc_results/clarc_population_acc_presence_absence.csv'
+        core_path = out_path+'/clarc_results/clarc_population_core_presence_absence.csv'
+
+        genefreq_meta_filt_acc.to_csv(acc_path, index=True)
+        genefreq_meta_filt_core.to_csv(core_path, index=True)
+
+        # Get fasta file with the representative sequences of the new accessory gene definitions
         # Get dataframe with all accessory COGs and their length
 
         def fasta_coglen_dataframe(fasta_file):
@@ -367,7 +503,7 @@ def clarc_cleaning(out_path):
 
             return df
 
-        # Get dataframe with length of each accessory cog
+        # Get dataframe with length of each COG evaluated by CLARC (previous accessory COGs)
 
         # Provide the path to your fasta file
         original_fasta_path = out_path+'/accessory_rep_seqs.fasta'
@@ -375,11 +511,11 @@ def clarc_cleaning(out_path):
         # Parse the fasta file and create the DataFrame
         cog_len = fasta_coglen_dataframe(original_fasta_path)
 
-        conn_cluster_cogs_acc_legend = conn_cluster_cogs_acc_legend.reset_index(drop=True)
+        conn_cluster_cogs_legend = conn_cluster_cogs_legend.reset_index(drop=True)
 
-        # Identify longest COG in each accessory cluster
+        # Identify longest COG in each CLARC cluster
 
-        for index, row in conn_cluster_cogs_acc_legend.iterrows():
+        for index, row in conn_cluster_cogs_legend.iterrows():
 
             longest_cog = ''
             max_len = 0
@@ -398,23 +534,22 @@ def clarc_cleaning(out_path):
                         longest_cog = cog
                         max_len = leng
 
-                conn_cluster_cogs_acc_legend.at[index, 'longest_cog'] = longest_cog
+                conn_cluster_cogs_legend.at[index, 'longest_cog'] = longest_cog
 
         # Get important lists
-        longest_acc_cogs = list(conn_cluster_cogs_acc_legend['longest_cog'])
+        longest_cogs = list(conn_cluster_cogs_legend['longest_cog'])
 
-        # Get fasta file with the representative sequences for the CLARC COG definitions
+        # Get fasta file with the representative sequences for the CLARC COG definitions - accessory and core
 
+        ## For accessory:
         # The COGs identified as part of core clusters will be dropped
-
         # The COGs identified as part of an accessory cluster, but not the longest cog will be dropped
-
         # The COGs identified as part of an accessory cluster and representing the longest COG will have their name reannotated with the cluster name
 
-        clarc_fasta_path = out_path+'/clarc_results/clarc_acc_cog_seqs.fasta'
+        clarc_fasta_path_acc = out_path+'/clarc_results/clarc_acc_cog_seqs.fasta'
 
         fin = open(original_fasta_path, 'r')
-        fout = open(clarc_fasta_path, 'w')
+        fout = open(clarc_fasta_path_acc, 'w')
 
         for record in SeqIO.parse(fin,'fasta'):
 
@@ -424,14 +559,43 @@ def clarc_cleaning(out_path):
 
                 if cog_name in cluster_acccogs_unique:
 
-                    if cog_name in longest_acc_cogs:
+                    if cog_name in longest_cogs:
 
-                        x = conn_cluster_cogs_acc_legend.query(f" longest_cog == '{cog_name}'")
+                        x = conn_cluster_cogs_legend.query(f" longest_cog == '{cog_name}'")
                         cluster_name = x['new_cluster_name_samecog'].values[0]
                         record.id = cluster_name
                         SeqIO.write(record, fout, 'fasta')
 
                 else:
+                    SeqIO.write(record, fout, 'fasta')
+
+        fin.close()
+        fout.close()
+
+        ## For core:
+        # The COGs identified as part of an  cluster, but not the longest cog will be dropped
+        # The COGs identified as part of a core cluster and representing the longest COG in their cluster will be appended to the fasta file with the core sequences, with its names updated to represent the cluster name
+
+        clarc_fasta_path_core = out_path+'/clarc_results/clarc_core_cog_seqs.fasta'
+        original_fasta_path_core = out_path+'/core_rep_seqs.fasta'
+
+        # Copy current core sequences into new output file
+        shutil.copyfile(original_fasta_path_core, clarc_fasta_path_core)
+
+        fin = open(original_fasta_path, 'r')
+        fout = open(clarc_fasta_path_core, 'a') # Append mode, according to google
+
+        for record in SeqIO.parse(fin,'fasta'):
+
+            cog_name = record.id
+
+            if cog_name in cluster_corecogs_unique:
+
+                if cog_name in longest_cogs:
+
+                    x = conn_cluster_cogs_legend.query(f" longest_cog == '{cog_name}'")
+                    cluster_name = x['new_cluster_name_samecog'].values[0]
+                    record.id = cluster_name
                     SeqIO.write(record, fout, 'fasta')
 
         fin.close()

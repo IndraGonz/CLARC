@@ -7,6 +7,7 @@ CLARC/filtering_acc_core.py
 CLARC/filtering_acc_core_panaroo.py
 CLARC/get_linkage_matrix.py
 CLARC/version.py
+CLARC.egg-info/CLARC_logo.svg
 CLARC.egg-info/PKG-INFO
 CLARC.egg-info/SOURCES.txt
 CLARC.egg-info/dependency_links.txt

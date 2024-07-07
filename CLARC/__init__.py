@@ -5,6 +5,8 @@
 
 import argparse
 import sys
+import os
+import shutil
 from .filtering_acc_core import get_pop_acc_pres_abs, get_pop_core_pres_abs
 from .filtering_acc_core_panaroo import get_pop_acc_pres_abs_panaroo, get_pop_core_pres_abs_panaroo
 from .get_linkage_matrix import get_linkage_matrices
@@ -26,6 +28,7 @@ def main():
     parser.add_argument("--panaroo", action='store_true', help="If given, the input data will be from Panaroo and it will filter accordingly. Remember to provide the 'gene_data.csv' input")
     parser.add_argument("--options", action='store_true', help="Show available options")
     parser.add_argument("--version", action='store_true', help="Show the version of the CLARC tool")
+    parser.add_argument("--dif", "--delete-intermediate-files", action='store_true', help="Delete intermediate files")
 
     args = parser.parse_args()
 
@@ -57,10 +60,12 @@ def main():
 
     if args.panaroo:
         # Filter Panaroo data to create presence absence matrices for core and accessory genes
+        panaroo_true = 1
         get_pop_acc_pres_abs_panaroo(input_dir, output_dir, acc_upper, acc_lower)
         get_pop_core_pres_abs_panaroo(input_dir, output_dir, core_lower)
 
     else:
+        panaroo_true = 0
         # Filter Roary data to create presence absence matrices for core and accessory genes
         get_pop_acc_pres_abs(input_dir, output_dir, acc_upper, acc_lower)
         get_pop_core_pres_abs(input_dir, output_dir, core_lower)
@@ -92,10 +97,32 @@ def main():
     print("Eggnog functional annotation of accessory COGs is complete.")
 
     ## Perform CLARC cleaning of COGs
-    clarc_cleaning(output_dir)
+    clarc_cleaning(input_dir, output_dir, panaroo_true, acc_upper, acc_lower, core_lower)
 
     print("CLARC finished re-defining COGs. Have fun with the results!")
 
+    if args.dif:
+        # List of paths to delete intermediate files
+        paths_to_delete = [
+            output_dir + '/linkage',
+            output_dir + '/eggnog',
+            output_dir + '/acc_blastn',
+            output_dir + '/accessory_rep_protein_seqs.fasta',
+            output_dir + '/clarc_results/accessory_cluster_cogs.txt',
+            output_dir + '/clarc_results/accessory_cluster_summary.csv',
+            output_dir + '/clarc_results/core_cluster_cogs.txt',
+            output_dir + '/clarc_results/core_cluster_summary.csv'
+        ]
+
+        # Iterate through each path and delete accordingly
+        for path in paths_to_delete:
+            try:
+                if os.path.isfile(path):
+                    os.remove(path)
+                elif os.path.isdir(path):
+                    shutil.rmtree(path)
+            except Exception as e:
+                print(f"Error deleting {path}: {e}")
 
 if __name__ == "__main__":
     main()
