@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.6-blue.svg)](https://www.python.org/)
 [![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A tool that uses sequence identity, linkage patterns and functional annotations to identify and reduce the over-splitting of genes into multiple clusters of orthologous genes (COGs) in a pangenome analysis. 
+A tool that uses sequence identity, linkage patterns and functional annotations to identify and reduce the over-splitting of accessory genes into multiple clusters of orthologous genes (COGs) in a pangenome analysis. 
 
 ## Table of Contents
 1. [Introduction](#introduction)
