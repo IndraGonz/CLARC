@@ -26,7 +26,7 @@ import shutil
 
 # ## Identify CLARC clusters, condense them and generate output files
 
-def clarc_cleaning(in_path, out_path, panaroo_true, acc_upper, acc_lower, core_lower):
+def clarc_cleaning(in_path, out_path, panaroo_true, acc_upper, acc_lower, core_lower, clarc_identity):
 
     # Import counts for COG pairs that co-occur
     linkage_p11_path = out_path+"/linkage/acc_p11_matrix.csv"
@@ -138,7 +138,7 @@ def clarc_cleaning(in_path, out_path, panaroo_true, acc_upper, acc_lower, core_l
     samecog_condense = p11_coglist_freq[p11_coglist_freq['eggnog_same_flag'] == 1]
 
     # High blastn sequence identity
-    samecog_condense = samecog_condense[samecog_condense['blastn_iden_per'] >= 95]
+    samecog_condense = samecog_condense[samecog_condense['blastn_iden_per'] >= clarc_identity]
 
     # Get list of unique COGs
 

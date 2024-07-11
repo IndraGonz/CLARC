@@ -1,7 +1,9 @@
+LICENSE
 README.md
 setup.py
 CLARC/__init__.py
 CLARC/clarc_condense.py
+CLARC/clarc_merge.py
 CLARC/eggnog_annotations.py
 CLARC/filtering_acc_core.py
 CLARC/filtering_acc_core_panaroo.py
