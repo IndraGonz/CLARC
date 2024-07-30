@@ -125,8 +125,10 @@ def clarc_cleaning(in_path, out_path, panaroo_true, acc_upper, acc_lower, core_l
         cog2 = row[1].COG2
 
         # Search in blast results dataframe
-        blast_cog1cog2 = blastn_acccogs.query(f"query_seq_ID == '{cog1}' and subject_seq_ID == '{cog2}'")
-
+        # Because Bakta includes different types of characters in the COG names, I have to update this line in the new 1.0.32 version
+        #blast_cog1cog2 = blastn_acccogs.query(f"query_seq_ID == '{cog1}' and subject_seq_ID == '{cog2}'")
+        # Makes query more robust
+        blast_cog1cog2 = blastn_acccogs[(blastn_acccogs['query_seq_ID'] == cog1) & (blastn_acccogs['subject_seq_ID'] == cog2)]
 
         # Check if it does have a hit
         if blast_cog1cog2.empty:

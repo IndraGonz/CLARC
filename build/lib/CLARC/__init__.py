@@ -61,58 +61,93 @@ def main():
     merge = args.merge
     ci = args.ci
 
+    ## Set paths to intermediate files to check if the step has been previously run
+    filter_path = output_dir+"/population_accessory_presence_absence.csv"
+    linkage_path = output_dir+"/linkage/acc_linkage_co-occur.csv"
+    eggnog_path = output_dir+"/eggnog/acc_cog_eggnog_annotations.csv"
+    blast_path = output_dir+"/acc_blastn/blastn_acccogs_allvall.tsv"
+
+    if args.panaroo:
+        panaroo_true = 1
+    else:
+        panaroo_true = 0
+
     if merge:
 
         print("Merging results from different CLARC runs to obtain final cluster list...")
-
-        if args.panaroo:
-            panaroo_true = 1
-        else:
-            panaroo_true = 0
 
         merge_clarc_results(merge, out_path=args.output_dir, panaroo_true=panaroo_true)
 
     else:
 
-        print("Filtering data to identify accessory and core genes...")
+        def filter():
+            if not os.path.exists(filter_path):
 
-        if args.panaroo:
-            # Filter Panaroo data to create presence absence matrices for core and accessory genes
-            panaroo_true = 1
-            get_pop_acc_pres_abs_panaroo(input_dir, output_dir, acc_upper, acc_lower)
-            get_pop_core_pres_abs_panaroo(input_dir, output_dir, core_lower)
+                print("Filtering data to identify accessory and core genes...")
 
-        else:
-            panaroo_true = 0
-            # Filter Roary data to create presence absence matrices for core and accessory genes
-            get_pop_acc_pres_abs(input_dir, output_dir, acc_upper, acc_lower)
-            get_pop_core_pres_abs(input_dir, output_dir, core_lower)
+                if panaroo_true == 1:
 
-        print("Data filtered, presence absence matrices created for subpopulation of samples.")
+                    get_pop_acc_pres_abs_panaroo(input_dir, output_dir, acc_upper, acc_lower)
+                    get_pop_core_pres_abs_panaroo(input_dir, output_dir, core_lower)
+
+                else:
+
+                    # Filter Roary data to create presence absence matrices for core and accessory genes
+                    get_pop_acc_pres_abs(input_dir, output_dir, acc_upper, acc_lower)
+                    get_pop_core_pres_abs(input_dir, output_dir, core_lower)
+
+                    print("Data filtered, presence absence matrices created for subpopulation of samples.")
+            else:
+                print("Skipping filtering step, output already exists")
 
         # If --filter-only is given, stop here
         if filter_only:
             print("CLARC finished running on 'filter only' mode")
             return
 
-        print("Calculating the linkage matrices...")
+        def linkage():
+            if not os.path.exists(linkage_path):
 
-        ## Get linkage matrices for CLARC analysis
-        get_linkage_matrices(output_dir)
+                print("Calculating the linkage matrices...")
 
-        print("Linkage matrices generated for the subpopulation accessory genes.")
+                ## Get linkage matrices for CLARC analysis
+                get_linkage_matrices(output_dir)
 
-        ## Perform blastn all v all comparison for accessory gene rep sequences
-        subprocess.run(['bash', 'acccog_blastn.sh', output_dir])
+                print("Linkage matrices generated for the subpopulation accessory genes.")
 
-        print("All vs. all nucleotide BLAST performed for the subpopulation accessory genes.")
+            else:
+                print("Skipping linkage matrix calculation step, output already exists")
 
-        print("Performing EggNOG functional annotations...")
+        def blastn():
+            if not os.path.exists(blast_path):
 
-        ## Perform eggnog functional annotation
-        get_functional_groups(output_dir)
+                ## Perform blastn all v all comparison for accessory gene rep sequences
+                subprocess.run(['bash', 'acccog_blastn.sh', output_dir])
 
-        print("Eggnog functional annotation of accessory COGs is complete.")
+                print("All vs. all nucleotide BLAST performed for the subpopulation accessory genes.")
+
+            else:
+                print("Skipping all vs all blast step, output already exists")
+
+        def eggnog():
+            if not os.path.exists(eggnog_path):
+
+                print("Performing EggNOG functional annotations...")
+
+                ## Perform eggnog functional annotation
+                get_functional_groups(output_dir)
+
+                print("Eggnog functional annotation of accessory COGs is complete.")
+
+
+            else:
+                print("Skipping EggNOG functional annotation step, output already exists")
+
+        ## Call functions to perform the CLARC preparation steps (and check if these steps have been previously run)
+        filter()
+        linkage()
+        blastn()
+        eggnog()
 
         ## Perform CLARC cleaning of COGs
         clarc_cleaning(input_dir, output_dir, panaroo_true, acc_upper, acc_lower, core_lower, ci)
