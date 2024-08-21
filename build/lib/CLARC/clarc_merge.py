@@ -408,7 +408,8 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
 
             entry_description = record.description
             cog_name = entry_description.split(' ', 1)[1]
-            seq_ids.append(cog_name)
+            cog_name_fixed = cog_name.replace(' ', '_').replace(',', '_').replace("'", '_').replace('"', '_')
+            seq_ids.append(cog_name_fixed)
             seq_lengths.append(len(record.seq))
 
         df = pd.DataFrame({"cog_name": seq_ids, "length": seq_lengths})
