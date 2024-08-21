@@ -287,6 +287,12 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
         roary_onefilt_condensed = roary_onefilt.copy().reset_index(drop=False)
         roary_onefilt_condensed = process_clusters(roary_onefilt_condensed, conn_cluster_cogs_legend)
 
+        clarc_merge_path = out_path+"/clarc_merge_results"
+
+        # Check if the directory already exists (create if it doesn't)
+        if not os.path.exists(clarc_merge_path):
+            os.makedirs(clarc_merge_path)
+
         # Export results
         roary_og_merge_clarced_path = clarc_merge_path+'/gene_presence_absence_clarc_merged.csv'
         roary_onefilt_condensed.to_csv(roary_og_merge_clarced_path, index=False)
@@ -322,6 +328,12 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
         panaroo_onefilt_condensed = panaroo_onefilt.copy().reset_index(drop=False)
         panaroo_onefilt_condensed = process_clusters(panaroo_onefilt_condensed, conn_cluster_cogs_legend)
 
+        clarc_merge_path = out_path+"/clarc_merge_results"
+
+        # Check if the directory already exists (create if it doesn't)
+        if not os.path.exists(clarc_merge_path):
+            os.makedirs(clarc_merge_path)
+
         # Export results
         panaroo_og_merge_clarced_path = clarc_merge_path+'/gene_presence_absence_roary_clarc_merged.csv'
         panaroo_onefilt_condensed.to_csv(panaroo_og_merge_clarced_path, index=False)
@@ -356,12 +368,6 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
 
     # Now append new groups
     samecog_clustered_presabs = pd.concat([nonredundant_presabs, pres_abs_newclusters], axis=1)
-
-    clarc_merge_path = out_path+"/clarc_merge_results"
-
-    # Check if the directory already exists (create if it doesn't)
-    if not os.path.exists(clarc_merge_path):
-        os.makedirs(clarc_merge_path)
 
     ## Save the summary output files for the merged clusters
     out_pres_abs = clarc_merge_path+'/presence_absence_clarc_merged_binary.csv'
