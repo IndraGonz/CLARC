@@ -30,8 +30,9 @@ def get_pop_acc_pres_abs(data_path, out_path, acc_upper, acc_lower):
     # Import Roary output
     igopan_all_roary = pd.read_csv(pres_abs_path, low_memory=False)
 
-    # Bakta often has spaces and special characters in its gene names, which can cause problems in the downstream analyses. So here we can turn them into dashes. I'm still deciding if this update is necessary. I think as long as the fasta files pick up the whole name, it should be fine.
-    igopan_all_roary["Gene"] = igopan_all_roary["Gene"].str.replace('[ ,]', '_', regex=True)
+    # Bakta often has spaces and special characters in its gene names, which can cause problems in the downstream analyses. So here we can turn them into underscores. I'm still deciding if this update is necessary. I think as long as the fasta files pick up the whole name, it should be fine.
+    # Update: this was absolutely necessary
+    igopan_all_roary["Gene"] = igopan_all_roary["Gene"].str.replace("[ ,\'\"]", "_", regex=True)
 
     # Get list of Roary output names in a list
     panroary_ids_list =  list(igopan_all_roary["Gene"])
@@ -121,7 +122,7 @@ def get_pop_acc_pres_abs(data_path, out_path, acc_upper, acc_lower):
         for record in SeqIO.parse(infile, "fasta"):
             # Check if the sequence ID is in the list of sequence IDs to keep
             cog_id = record.description.split(' ', 1)[1]
-            cog_id_fixed = cog_id.replace(' ', '_').replace(',', '_')
+            cog_id_fixed = cog_id.replace(' ', '_').replace(',', '_').replace("'", '_').replace('"', '_')
             if cog_id_fixed in acccog_name_navajo_list:
                 # Write the record to the output file
                 record.id = cog_id_fixed
@@ -141,8 +142,8 @@ def get_pop_core_pres_abs(data_path, out_path, core_lower):
     # Import Roary output
     igopan_all_roary = pd.read_csv(pres_abs_path, low_memory=False)
 
-    # Bakta often has spaces and special characters in its gene names, which can cause problems in the downstream analyses. So here we turn them into dashes.
-    igopan_all_roary["Gene"] = igopan_all_roary["Gene"].str.replace('[ ,]', '_', regex=True)
+    # Bakta often has spaces and special characters in its gene names, which can cause problems in the downstream analyses. So here we turn them into underscores.
+    igopan_all_roary["Gene"] = igopan_all_roary["Gene"].str.replace("[ ,\'\"]", "_", regex=True)
 
     # Get list of Roary output names in a list
     panroary_ids_list =  list(igopan_all_roary["Gene"])
@@ -232,7 +233,7 @@ def get_pop_core_pres_abs(data_path, out_path, core_lower):
         for record in SeqIO.parse(infile, "fasta"):
             # Check if the sequence ID is in the list of sequence IDs to keep
             cog_id = record.description.split(' ', 1)[1]
-            cog_id_fixed = cog_id.replace(' ', '_').replace(',', '_')
+            cog_id_fixed = cog_id.replace(' ', '_').replace(',', '_').replace("'", '_').replace('"', '_')
             if cog_id_fixed in corecog_name_navajo_list:
                 # Write the record to the output file
                 record.id = cog_id_fixed

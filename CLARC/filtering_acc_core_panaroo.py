@@ -36,13 +36,16 @@ def get_pop_acc_pres_abs_panaroo(data_path, out_path, acc_upper, acc_lower):
     # Import Panaroo output
     igopan_all_panaroo = pd.read_csv(pres_abs_path, low_memory=False)
 
+    # In case of Bakta annotations, filter out problematic characters
+    #igopan_all_panaroo["Gene"] = igopan_all_panaroo["Gene"].str.replace("[ ,\'\"]", "_", regex=True)
+
     # Get list of panaroo output names in a list
     panpanaroo_ids_list =  list(igopan_all_panaroo["Gene"])
 
     # First round of filtering by fragment length >150bp OR general isolate frequency >10%
-    tenp = (igopan_all_panaroo.shape[1]-14)/10 # Counting number of isolates (first 14 columns are metadata)
-
-    panaroo_onefilt = igopan_all_panaroo[(igopan_all_panaroo['Avg group size nuc'] >= 150) | (igopan_all_panaroo['No. isolates'] >= tenp)]
+    #tenp = (igopan_all_panaroo.shape[1]-14)/10 # Counting number of isolates (first 14 columns are metadata)
+    #panaroo_onefilt = igopan_all_panaroo[(igopan_all_panaroo['Avg group size nuc'] >= 150) | (igopan_all_panaroo['No. isolates'] >= tenp)]
+    panaroo_onefilt = igopan_all_panaroo.copy()
 
     # Now make gene names the indeces
     panaroo_onefilt.set_index('Gene', inplace=True)
@@ -301,10 +304,9 @@ def get_pop_core_pres_abs_panaroo(data_path, out_path, core_lower):
     panpanaroo_ids_list =  list(igopan_all_panaroo["Gene"])
 
     # First round of filtering by fragment length >150bp OR general isolate frequency >10%
-
-    tenp = (igopan_all_panaroo.shape[1]-14)/10 # Counting number of isolates (first 14 columns are metadata)
-
-    panaroo_onefilt = igopan_all_panaroo[(igopan_all_panaroo['Avg group size nuc'] >= 150) | (igopan_all_panaroo['No. isolates'] >= tenp)]
+    #tenp = (igopan_all_panaroo.shape[1]-14)/10 # Counting number of isolates (first 14 columns are metadata)
+    #panaroo_onefilt = igopan_all_panaroo[(igopan_all_panaroo['Avg group size nuc'] >= 150) | (igopan_all_panaroo['No. isolates'] >= tenp)]
+    panaroo_onefilt = igopan_all_panaroo.copy()
 
     # Now make gene names the indeces
     panaroo_onefilt.set_index('Gene', inplace=True)

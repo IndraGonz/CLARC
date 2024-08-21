@@ -383,7 +383,8 @@ def clarc_cleaning(in_path, out_path, panaroo_true, acc_upper, acc_lower, core_l
 
             # Import output pres abs
             roary_all_c = pd.read_csv(pres_abs_path, low_memory=False)
-            roary_all_c['Gene'] = roary_all_c['Gene'].str.replace(' ', '_').str.replace(',', '_')
+            roary_all_c['Gene'] = roary_all_c['Gene'].str.replace(r"[ ,\'\"]", '_', regex=True)
+
 
             # Get list of Roary output names in a list
             panroary_ids_list =  list(roary_all_c["Gene"])
@@ -421,7 +422,8 @@ def clarc_cleaning(in_path, out_path, panaroo_true, acc_upper, acc_lower, core_l
 
             # Import and filter panaroo results
             panaroo_all_c = pd.read_csv(pres_abs_path, low_memory=False)
-            panaroo_all_c['Gene'] = panaroo_all_c['Gene'].str.replace(' ', '_').str.replace(',', '_')
+            panaroo_all_c['Gene'] = panaroo_all_c['Gene'].str.replace(r"[ ,\'\"]", '_', regex=True)
+
 
             # Get list of Roary output names in a list
             panaroo_ids_list =  list(panaroo_all_c["Gene"])

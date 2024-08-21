@@ -261,7 +261,8 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
 
         # Import output pres abs
         roary_all_c = pd.read_csv(pres_abs_path, low_memory=False)
-        roary_all_c['Gene'] = roary_all_c['Gene'].str.replace(' ', '_').str.replace(',', '_')
+        roary_all_c['Gene'] = roary_all_c['Gene'].str.replace(r"[ ,\'\"]", '_', regex=True)
+
 
         # First round of filtering by fragment length >150bp OR general isolate frequency >10%
         #tenp = (roary_all_c.shape[1]-14)/10 # Counting number of isolates (first 14 columns are metadata)
@@ -296,7 +297,7 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
 
         # Import and filter panaroo results
         panaroo_all_c = pd.read_csv(pres_abs_path, low_memory=False)
-        panaroo_all_c['Gene'] = panaroo_all_c['Gene'].str.replace(' ', '_').str.replace(',', '_')
+        panaroo_all_c['Gene'] = panaroo_all_c['Gene'].str.replace(r"[ ,\'\"]", '_', regex=True)
 
         # First round of filtering by fragment length >150bp OR general isolate frequency >10%
         #tenp = (panaroo_all_c.shape[1]-14)/10 # Counting number of isolates (first 14 columns are metadata)
@@ -458,7 +459,7 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
         entry_description = record.description
 
         cog_name = entry_description.split(' ', 1)[1]
-        cog_name_fixed = cog_name.replace(' ', '_').replace(',', '_')
+        cog_name_fixed = cog_name.replace(' ', '_').replace(',', '_').replace("'", '_').replace('"', '_')
 
         if cog_name_fixed in all_unique:
 
