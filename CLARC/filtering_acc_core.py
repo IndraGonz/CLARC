@@ -16,12 +16,13 @@ import numpy as np
 import scipy as scipy
 from Bio import SeqIO
 
-
 ### Define functions
 
 # Function to filter for accessory cogs
 
 def get_pop_acc_pres_abs(data_path, out_path, acc_upper, acc_lower):
+
+    # Now we filter by frequency per each dataset (this can change depending on the datasets we want to include)
 
     pres_abs_path = data_path+"/gene_presence_absence.csv"
     sample_needed_path = data_path+'/needed_sample_names.txt'
@@ -29,20 +30,24 @@ def get_pop_acc_pres_abs(data_path, out_path, acc_upper, acc_lower):
     # Import Roary output
     igopan_all_roary = pd.read_csv(pres_abs_path, low_memory=False)
 
+    # Bakta often has spaces and special characters in its gene names, which can cause problems in the downstream analyses. So here we can turn them into dashes. I'm still deciding if this update is necessary. I think as long as the fasta files pick up the whole name, it should be fine.
+    igopan_all_roary["Gene"] = igopan_all_roary["Gene"].str.replace('[ ,]', '_', regex=True)
+
     # Get list of Roary output names in a list
     panroary_ids_list =  list(igopan_all_roary["Gene"])
 
+    # I have eliminated this filtering step, since we were using it for S. pneumoniae, but it might not hold for all species and it is unclear how necessary it is
     # First round of filtering by fragment length >150bp OR general isolate frequency >10%
-
-    tenp = (igopan_all_roary.shape[1]-14)/10 # Counting number of isolates (first 14 columns are metadata)
-
-    roary_onefilt = igopan_all_roary[(igopan_all_roary['Avg group size nuc'] >= 150) | (igopan_all_roary['No. isolates'] >= tenp)]
+    #tenp = (igopan_all_roary.shape[1]-14)/10 # Counting number of isolates (first 14 columns are metadata)
+    #roary_onefilt = igopan_all_roary[(igopan_all_roary['Avg group size nuc'] >= 150) | (igopan_all_roary['No. isolates'] >= tenp)]
 
     # Now make gene names the indeces
-    roary_onefilt.set_index('Gene', inplace=True)
+    #roary_onefilt.set_index('Gene', inplace=True)
+    igopan_all_roary.set_index('Gene', inplace=True)
 
     # Drop all columns that are not an isolate
-    roary_isol = roary_onefilt.iloc[:,13:]
+    #roary_isol = roary_onefilt.iloc[:,13:]
+    roary_isol = igopan_all_roary.iloc[:,13:]
 
     # Now replace NaN values for 0 and any other value for 1
     roary_isol[~roary_isol.isnull()] = 1
@@ -58,8 +63,6 @@ def get_pop_acc_pres_abs(data_path, out_path, acc_upper, acc_lower):
 
     # Get only isolates in the list
     genefreq_mat_filt = roary_genefreq_matrix[roary_genefreq_matrix.index.isin(acc_needed_list)]
-
-    # Now we filter by frequency per each dataset (this can change depending on the datasets we want to include)
 
     # Write function that loops through each gene column and returns the frequency in the dataframe
     def get_freq(dataframe):
@@ -86,8 +89,11 @@ def get_pop_acc_pres_abs(data_path, out_path, acc_upper, acc_lower):
     #Navajo all
     freq_cog_navajo = get_freq(genefreq_mat_filt)
 
+    # Make sure the frequencies are numeric
+    freq_cog_navajo['freq'] = pd.to_numeric(freq_cog_navajo['freq'], errors='coerce')
+
     # Now filter to only keep cogs with frequency between 5 and 95% within the given sample subset
-    acc_cog_navajo = freq_cog_navajo.loc[(freq_cog_navajo['freq'] >= acc_lower) & (freq_cog_navajo['freq'] <= acc_upper)]
+    acc_cog_navajo = freq_cog_navajo[(freq_cog_navajo['freq'] >= acc_lower) & (freq_cog_navajo['freq'] <= acc_upper)]
 
     # Get the number of accessory cogs per dataset
     acccog_num_navajo = acc_cog_navajo.shape[0]
@@ -114,10 +120,11 @@ def get_pop_acc_pres_abs(data_path, out_path, acc_upper, acc_lower):
         # Loop through each record in the input FASTA file
         for record in SeqIO.parse(infile, "fasta"):
             # Check if the sequence ID is in the list of sequence IDs to keep
-            cog_id = record.description.split()[1]
-            if cog_id in acccog_name_navajo_list:
+            cog_id = record.description.split(' ', 1)[1]
+            cog_id_fixed = cog_id.replace(' ', '_').replace(',', '_')
+            if cog_id_fixed in acccog_name_navajo_list:
                 # Write the record to the output file
-                record.id = cog_id
+                record.id = cog_id_fixed
                 record.description = ''
                 SeqIO.write(record, outfile, "fasta")
 
@@ -126,26 +133,32 @@ def get_pop_acc_pres_abs(data_path, out_path, acc_upper, acc_lower):
 
 def get_pop_core_pres_abs(data_path, out_path, core_lower):
 
+    # Now we filter by frequency per each dataset (this can change depending on the datasets we want to include)
+
     pres_abs_path = data_path+"/gene_presence_absence.csv"
     sample_needed_path = data_path+'/needed_sample_names.txt'
 
     # Import Roary output
     igopan_all_roary = pd.read_csv(pres_abs_path, low_memory=False)
 
+    # Bakta often has spaces and special characters in its gene names, which can cause problems in the downstream analyses. So here we turn them into dashes.
+    igopan_all_roary["Gene"] = igopan_all_roary["Gene"].str.replace('[ ,]', '_', regex=True)
+
     # Get list of Roary output names in a list
     panroary_ids_list =  list(igopan_all_roary["Gene"])
 
+    # I have eliminated this filtering step, since we were using it for S. pneumoniae, but it might not hold for all species and it is unclear how necessary it is
     # First round of filtering by fragment length >150bp OR general isolate frequency >10%
-
-    tenp = (igopan_all_roary.shape[1]-14)/10 # Counting number of isolates (first 14 columns are metadata)
-
-    roary_onefilt = igopan_all_roary[(igopan_all_roary['Avg group size nuc'] >= 150) | (igopan_all_roary['No. isolates'] >= tenp)]
+    #tenp = (igopan_all_roary.shape[1]-14)/10 # Counting number of isolates (first 14 columns are metadata)
+    #roary_onefilt = igopan_all_roary[(igopan_all_roary['Avg group size nuc'] >= 150) | (igopan_all_roary['No. isolates'] >= tenp)]
 
     # Now make gene names the indeces
-    roary_onefilt.set_index('Gene', inplace=True)
+    #roary_onefilt.set_index('Gene', inplace=True)
+    igopan_all_roary.set_index('Gene', inplace=True)
 
     # Drop all columns that are not an isolate
-    roary_isol = roary_onefilt.iloc[:,13:]
+    #roary_isol = roary_onefilt.iloc[:,13:]
+    roary_isol = igopan_all_roary.iloc[:,13:]
 
     # Now replace NaN values for 0 and any other value for 1
     roary_isol[~roary_isol.isnull()] = 1
@@ -161,8 +174,6 @@ def get_pop_core_pres_abs(data_path, out_path, core_lower):
 
     # Get only isolates in the list
     genefreq_mat_filt = roary_genefreq_matrix[roary_genefreq_matrix.index.isin(acc_needed_list)]
-
-    # Now we filter by frequency per each dataset (this can change depending on the datasets we want to include)
 
     # Write function that loops through each gene column and returns the frequency in the dataframe
     def get_freq(dataframe):
@@ -189,16 +200,19 @@ def get_pop_core_pres_abs(data_path, out_path, core_lower):
     #Navajo all
     freq_cog_navajo = get_freq(genefreq_mat_filt)
 
-    # Now filter to only keep cogs with frequency over 95% within the given sample subset
-    core_cog_navajo = freq_cog_navajo.loc[(freq_cog_navajo['freq'] > core_lower)]
+    # Make sure the frequencies are numeric
+    freq_cog_navajo['freq'] = pd.to_numeric(freq_cog_navajo['freq'], errors='coerce')
 
-    # Get the number of accessory cogs per dataset
+    # Now filter to only keep cogs with frequency over a given frequency (default 95%) within the given sample subset
+    core_cog_navajo = freq_cog_navajo[(freq_cog_navajo['freq'] > core_lower)]
+
+    # Get the number of core cogs per dataset
     corecog_num_navajo = core_cog_navajo.shape[0]
 
-    # Get accessory cog names as lists
+    # Get core cog names as lists
     corecog_name_navajo_list = list(core_cog_navajo["COG_name"])
 
-    # Only get presence absence matrix for accessory genes
+    # Only get presence absence matrix for core genes
     genefreq_meta_filt_core = genefreq_mat_filt[genefreq_mat_filt.columns[genefreq_mat_filt.columns.isin(corecog_name_navajo_list)]]
 
     ## Export results to output folder
@@ -206,7 +220,7 @@ def get_pop_core_pres_abs(data_path, out_path, core_lower):
 
     genefreq_meta_filt_core.to_csv(csv_path, index=True)
 
-    ### Now get fasta file with only accessory genes
+    ### Now get fasta file with only core genes
 
     # Define the input and output file paths
     seq_path = data_path+"/pan_genome_reference.fa"
@@ -217,9 +231,10 @@ def get_pop_core_pres_abs(data_path, out_path, core_lower):
         # Loop through each record in the input FASTA file
         for record in SeqIO.parse(infile, "fasta"):
             # Check if the sequence ID is in the list of sequence IDs to keep
-            cog_id = record.description.split()[1]
-            if cog_id in corecog_name_navajo_list:
+            cog_id = record.description.split(' ', 1)[1]
+            cog_id_fixed = cog_id.replace(' ', '_').replace(',', '_')
+            if cog_id_fixed in corecog_name_navajo_list:
                 # Write the record to the output file
-                record.id = cog_id
+                record.id = cog_id_fixed
                 record.description = ''
                 SeqIO.write(record, outfile, "fasta")

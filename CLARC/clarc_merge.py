@@ -192,6 +192,64 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
         if 'COG' in col:
             conn_cluster_cogs_legend[col] = clusters_all[col]
 
+    ### Condense the identified CLARC clusters on the original Roary output
+
+    # Define function to generate the condensed row, given a list of the COGs present in the cluster and the new cluster name
+    # The new cluster name is input as the new 'Gene' name, the No. isolate and sequences are summed to obtain the new Avg seqs per isolate of the cluster
+    # For all other columns, the values of each COG in the cluster are just concatenated
+
+    def create_condensed_row(df, genes, new_gene_name):
+        rows_to_combine = df[df['Gene'].isin(genes)]
+
+        if rows_to_combine.empty:
+            return None
+
+        # Perform aggregation
+        condensed_row = {
+            'Gene': new_gene_name,
+            'Non-unique Gene name': ', '.join(rows_to_combine['Non-unique Gene name'].fillna('').astype(str)),
+            'Annotation': ', '.join(rows_to_combine['Annotation'].fillna('').astype(str)),
+            'No. isolates': rows_to_combine['No. isolates'].sum(),
+            'No. sequences': rows_to_combine['No. sequences'].sum(),
+            'Avg sequences per isolate': rows_to_combine['No. sequences'].sum() / rows_to_combine['No. isolates'].sum() if rows_to_combine['No. isolates'].sum() != 0 else 0,
+            **{col: ', '.join(rows_to_combine[col].fillna('').astype(str)) for col in df.columns[7:]}
+        }
+
+        return condensed_row
+
+    # Define function to loop through the legend of clusters and condense the rows of each cluster in the original pangenome output
+
+    def process_clusters(df, legend):
+
+        legend_data = legend.to_dict(orient='records')
+        gene_set = set(df['Gene'])
+
+        condensed_rows = []
+        gene_to_condensed = {}
+
+        for row in legend_data:
+            values = list(row.values())
+            cogs_to_cluster = [x for x in values[:-1] if pd.notna(x)]
+            new_cluster_name = row['new_cluster_name_samecog']
+
+            # Skip if there are no COGs in the cluster (shouldn't happen but who knows)
+            if not cogs_to_cluster:
+                continue
+
+            condensed_row = create_condensed_row(df, cogs_to_cluster, new_cluster_name)
+            if condensed_row:
+                condensed_rows.append(condensed_row)
+
+                for gene in cogs_to_cluster:
+                    gene_to_condensed[gene] = new_cluster_name
+
+
+        filtered_df = df[~df['Gene'].isin(gene_to_condensed.keys())]
+        cluster_new_rows = pd.DataFrame(condensed_rows)
+        final_df = pd.concat([filtered_df, cluster_new_rows], ignore_index=True)
+
+        return final_df
+
     # Now we want to drop the COGs in the clusters we just condensed and add the presence absence info of the newly defined clusters. The presence absence matrix selected will the the one in the data folder of the first path, but as a reminder, they should be the same in ALL paths.
 
     # Import original presence absence matrix results and filter them to generate cleaner presence absence matrix (but do NOT filter for core or accessory)
@@ -203,15 +261,12 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
 
         # Import output pres abs
         roary_all_c = pd.read_csv(pres_abs_path, low_memory=False)
-
-        # Get list of Roary output names in a list
-        panroary_ids_list =  list(roary_all_c["Gene"])
+        roary_all_c['Gene'] = roary_all_c['Gene'].str.replace(' ', '_').str.replace(',', '_')
 
         # First round of filtering by fragment length >150bp OR general isolate frequency >10%
-
-        tenp = (roary_all_c.shape[1]-14)/10 # Counting number of isolates (first 14 columns are metadata)
-
-        roary_onefilt = roary_all_c[(roary_all_c['Avg group size nuc'] >= 150) | (roary_all_c['No. isolates'] >= tenp)]
+        #tenp = (roary_all_c.shape[1]-14)/10 # Counting number of isolates (first 14 columns are metadata)
+        #roary_onefilt = roary_all_c[(roary_all_c['Avg group size nuc'] >= 150) | (roary_all_c['No. isolates'] >= tenp)]
+        roary_onefilt = roary_all_c.copy()
 
         # Now make gene names the indeces
         roary_onefilt.set_index('Gene', inplace=True)
@@ -227,21 +282,26 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
         pres_abs_isol = roary_isol.transpose()
         pres_abs_isol.index.name='Accession'
 
+        # Condense clusters on original Roary output, using pre-defined functions
+        roary_onefilt_condensed = roary_onefilt.copy().reset_index(drop=False)
+        roary_onefilt_condensed = process_clusters(roary_onefilt_condensed, conn_cluster_cogs_legend)
+
+        # Export results
+        roary_og_merge_clarced_path = clarc_merge_path+'/gene_presence_absence_clarc_merged.csv'
+        roary_onefilt_condensed.to_csv(roary_og_merge_clarced_path, index=False)
+
     elif panaroo_true == 1:
 
         pres_abs_path = paths_list[0]+'/data/gene_presence_absence_roary.csv'
 
         # Import and filter panaroo results
         panaroo_all_c = pd.read_csv(pres_abs_path, low_memory=False)
-
-        # Get list of Roary output names in a list
-        panaroo_ids_list =  list(panaroo_all_c["Gene"])
+        panaroo_all_c['Gene'] = panaroo_all_c['Gene'].str.replace(' ', '_').str.replace(',', '_')
 
         # First round of filtering by fragment length >150bp OR general isolate frequency >10%
-
-        tenp = (panaroo_all_c.shape[1]-14)/10 # Counting number of isolates (first 14 columns are metadata)
-
-        panaroo_onefilt = panaroo_all_c[(panaroo_all_c['Avg group size nuc'] >= 150) | (panaroo_all_c['No. isolates'] >= tenp)]
+        #tenp = (panaroo_all_c.shape[1]-14)/10 # Counting number of isolates (first 14 columns are metadata)
+        #panaroo_onefilt = panaroo_all_c[(panaroo_all_c['Avg group size nuc'] >= 150) | (panaroo_all_c['No. isolates'] >= tenp)]
+        panaroo_onefilt = panaroo_all_c.copy()
 
         # Now make gene names the indeces
         panaroo_onefilt.set_index('Gene', inplace=True)
@@ -256,6 +316,14 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
         # Switch rows to columns for ease
         pres_abs_isol = panaroo_isol.transpose()
         pres_abs_isol.index.name='Accession'
+
+        # Condense clusters on original Roary output, using pre-defined functions
+        panaroo_onefilt_condensed = panaroo_onefilt.copy().reset_index(drop=False)
+        panaroo_onefilt_condensed = process_clusters(panaroo_onefilt_condensed, conn_cluster_cogs_legend)
+
+        # Export results
+        panaroo_og_merge_clarced_path = clarc_merge_path+'/gene_presence_absence_roary_clarc_merged.csv'
+        panaroo_onefilt_condensed.to_csv(panaroo_og_merge_clarced_path, index=False)
 
     # Add empty column to dataframe with cog pairs that exclude each other
     pres_abs_newclusters = pd.DataFrame()
@@ -295,8 +363,7 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
         os.makedirs(clarc_merge_path)
 
     ## Save the summary output files for the merged clusters
-
-    out_pres_abs = clarc_merge_path+'/presence_absence_clarc_merged.csv'
+    out_pres_abs = clarc_merge_path+'/presence_absence_clarc_merged_binary.csv'
     samecog_clustered_presabs.to_csv(out_pres_abs, index=True)
 
     out_text = clarc_merge_path+'/clarc_merge_cluster_summary.txt'
@@ -378,6 +445,9 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
     # The COGs identified as part of an accessory cluster, but not the longest cog will be dropped
     # The COGs identified as part of an accessory cluster and representing the longest COG will have their name reannotated with the cluster name
 
+    # Important: Bakta allows spaces and commas in their COG names, which messes with the way in which biopython reads the record id
+    # So, all spaces and commas in COG names are replaced by underscores throughout the CLARC pipeline
+
     clarc_fasta_path_acc = out_path+'/clarc_merge_results/pan_genome_reference_clarc_merge.fasta'
 
     fin = open(original_fasta_path, 'r')
@@ -386,19 +456,21 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
     for record in SeqIO.parse(fin,'fasta'):
 
         entry_description = record.description
+
         cog_name = entry_description.split(' ', 1)[1]
+        cog_name_fixed = cog_name.replace(' ', '_').replace(',', '_')
 
-        if cog_name in all_unique:
+        if cog_name_fixed in all_unique:
 
-            if cog_name in longest_cogs:
+            if cog_name_fixed in longest_cogs:
 
-                x = conn_cluster_cogs_legend.query(f" longest_cog == '{cog_name}'")
+                x = conn_cluster_cogs_legend.query(f" longest_cog == '{cog_name_fixed}'")
                 cluster_name = x['new_cluster_name_samecog'].values[0]
                 record.id = cluster_name
                 SeqIO.write(record, fout, 'fasta')
 
         else:
-            record.id = cog_name
+            record.id = cog_name_fixed
             #record.description = ' '
             SeqIO.write(record, fout, 'fasta')
 

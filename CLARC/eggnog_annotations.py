@@ -135,12 +135,15 @@ def get_functional_groups(out_path):
     eggnog_functional.to_csv(eggnog_path+'/acc_cog_eggnog_annotations.csv', index=False)
 
     # Now to summarize the COGs that are part of each eggnog functional group
-
     # Only get COG names with exact match
 
     # A
     eggnog_acc_A = eggnog_functional[eggnog_functional["functional_group"] == 'A']
     eggnog_hit_cogs_A =  list(eggnog_acc_A["cog"])
+
+    # B
+    eggnog_acc_B = eggnog_functional[eggnog_functional["functional_group"] == 'B']
+    eggnog_hit_cogs_B =  list(eggnog_acc_B["cog"])
 
     # C
     eggnog_acc_C = eggnog_functional[eggnog_functional["functional_group"] == 'C']
@@ -214,6 +217,18 @@ def get_functional_groups(out_path):
     eggnog_acc_V = eggnog_functional[eggnog_functional["functional_group"] == 'V']
     eggnog_hit_cogs_V =  list(eggnog_acc_V["cog"])
 
+    # Y
+    eggnog_acc_Y = eggnog_functional[eggnog_functional["functional_group"] == 'Y']
+    eggnog_hit_cogs_Y =  list(eggnog_acc_Y["cog"])
+
+    # Z
+    eggnog_acc_Z = eggnog_functional[eggnog_functional["functional_group"] == 'Z']
+    eggnog_hit_cogs_Z =  list(eggnog_acc_Z["cog"])
+
+    # R
+    eggnog_acc_R = eggnog_functional[eggnog_functional["functional_group"] == 'R']
+    eggnog_hit_cogs_R =  list(eggnog_acc_R["cog"])
+
     # S
     eggnog_acc_S = eggnog_functional[eggnog_functional["functional_group"] == 'S']
     eggnog_hit_cogs_S =  list(eggnog_acc_S["cog"])
@@ -238,6 +253,7 @@ def get_functional_groups(out_path):
 
     # Eggnog
     eggnog_A = pd.DataFrame({'eggnog_A': sorted(eggnog_hit_cogs_A)})
+    eggnog_B = pd.DataFrame({'eggnog_B': sorted(eggnog_hit_cogs_B)})
     eggnog_C = pd.DataFrame({'eggnog_C': sorted(eggnog_hit_cogs_C)})
     eggnog_D = pd.DataFrame({'eggnog_D': sorted(eggnog_hit_cogs_D)})
     eggnog_E = pd.DataFrame({'eggnog_E': sorted(eggnog_hit_cogs_E)})
@@ -256,12 +272,15 @@ def get_functional_groups(out_path):
     eggnog_T = pd.DataFrame({'eggnog_T': sorted(eggnog_hit_cogs_T)})
     eggnog_U = pd.DataFrame({'eggnog_U': sorted(eggnog_hit_cogs_U)})
     eggnog_V = pd.DataFrame({'eggnog_V': sorted(eggnog_hit_cogs_V)})
+    eggnog_Y = pd.DataFrame({'eggnog_Y': sorted(eggnog_hit_cogs_Y)})
+    eggnog_Z = pd.DataFrame({'eggnog_Z': sorted(eggnog_hit_cogs_Z)})
+    eggnog_R = pd.DataFrame({'eggnog_R': sorted(eggnog_hit_cogs_R)})
     eggnog_S = pd.DataFrame({'eggnog_S': sorted(eggnog_hit_cogs_S)})
     eggnog_NH = pd.DataFrame({'eggnog_NH': sorted(eggnog_hit_cogs_NH)})
     eggnog_mixed = pd.DataFrame({'eggnog_mixed': sorted(eggnog_hit_cogs_mixed)})
 
     # Concatenate dataframes
-    functionalCOG_namelist = pd.concat([all_cogs,eggnog_A,eggnog_C,eggnog_D,eggnog_E,eggnog_F,eggnog_G,eggnog_H,eggnog_I,eggnog_J,eggnog_K,eggnog_L,eggnog_M,eggnog_N,eggnog_O,eggnog_P,eggnog_Q,eggnog_T,eggnog_U,eggnog_V,eggnog_S,eggnog_NH,eggnog_mixed], axis=1)
+    functionalCOG_namelist = pd.concat([all_cogs,eggnog_A,eggnog_B,eggnog_C,eggnog_D,eggnog_E,eggnog_F,eggnog_G,eggnog_H,eggnog_I,eggnog_J,eggnog_K,eggnog_L,eggnog_M,eggnog_N,eggnog_O,eggnog_P,eggnog_Q,eggnog_T,eggnog_U,eggnog_V,eggnog_Y,eggnog_Z,eggnog_R,eggnog_S,eggnog_NH,eggnog_mixed], axis=1)
 
     functionalCOG_namelist.to_csv(eggnog_path+'/eggnog_group_cog_names.csv', index=False)
 
