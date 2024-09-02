@@ -22,7 +22,11 @@ A tool that uses sequence identity, linkage patterns and functional annotations 
 
 ## Introduction
 
-🚧🚧 Introduction coming soon 🚧🚧
+Current tools that infer bacterial pangenomes generally cluster annotated coding sequences into orthologous groups (COGs) to generate a gene presence absence matrix for the given population of genomes. However, strict identity cutoffs often inflate accessory gene estimates by misclassifying variants of a gene into separate orthologous groups. These misclassifications can significantly impact downstream analyses, especially those that rely on gene frequency estimates.  CLARC helps correct this over splitting of accessory genes into multiple orthologous groups, by identifying and condensing redundant COGs.
+
+In its first step, CLARC identifies ‘same gene’ pairs by looking for genes that never co-occur in the same isolate and also share sequence identity and functional annotation. After this step, CLARC builds a graph where fully connected clusters represent gene variants that were erroneously split into different COGs. Finally, genes in these clusters are condensed to generate a refined gene presence absence matrix for the population. For a more detailed breakdown of the technical workflow see the [Pipeline workflow description](#pipeline-workflow-description) section in this repository.
+
+In summary, CLARC is meant to compliment existing bacterial pangenome tools by polishing their COG definitions. As input, the pipeline currently takes the presence absence matrix generated with [Roary](https://sanger-pathogens.github.io/Roary/) (but can also accept input from [Panaroo](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-02090-4)). We believe CLARC is particularly helpful for researchers that plan to perform downstream analyses that rely on COG frequencies, such as studying the evolutionary dynamics of accessory genes or running a panGWAS. 
 
 ## Installation
 
