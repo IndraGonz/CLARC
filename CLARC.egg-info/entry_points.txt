@@ -1,3 +1,2 @@
 [console_scripts]
 clarc = CLARC.__init__:main
-

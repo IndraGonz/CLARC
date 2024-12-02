@@ -25,7 +25,7 @@ def main():
     parser.add_argument("--acc_upper", default=0.95, type=float, help="Upper bound for accessory gene filtering")
     parser.add_argument("--acc_lower", default=0.05, type=float, help="Lower bound for accessory gene filtering")
     parser.add_argument("--core_lower", default=0.95, type=float, help="Lower bound for core gene filtering")
-    parser.add_argument("--ci","--clarc-identity", default=95, type=float, help="BLASTN identity threshold CLARC uses as constraint to identity same gene clusters. Number from 0-100, default is 95%")
+    parser.add_argument("--ci","--clarc-identity", default=95, type=float, help="BLASTN identity threshold CLARC uses as constraint to identity same gene clusters. Number from 0-100, default is 95 percent")
     parser.add_argument("--filter-only", action='store_true', help="If given, only run the filtering steps")
     parser.add_argument("--panaroo", action='store_true', help="If given, the input data will be from Panaroo and it will filter accordingly. Remember to provide the 'gene_data.csv' input")
     parser.add_argument("--options", action='store_true', help="Show available options")
