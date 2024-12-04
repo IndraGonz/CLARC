@@ -104,6 +104,10 @@ Nonetheless, if you did not use samples from multiple distinct populations in yo
 
 Make sure these 3 input files are in the same folder, since you will specify the input folder path when running CLARC.
 
+### Inputs for Panaroo
+
+Because of the way in which Panaroo saves the representative sequences of each COG, the inputs will be slightly different. 
+
 #### Command
 
 Now the clarc command can be run from the terminal (within the clarc_env environment):
@@ -169,8 +173,6 @@ Options: -h, --help  Show help message with options
          --dif, --delete-intermediate-files Delete intermediate files
          --merge MERGE [MERGE ...] Paths to CLARC results that will be merged, in the case of runs with multiple defined populations (folders where clarc was run that include the original data and clarc output subfolders)
 ```
-
-### Inputs for Panaroo
 
 ## Outputs
 
