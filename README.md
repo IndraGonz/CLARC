@@ -197,29 +197,29 @@ The ```clarc_results``` folder will contain the following files:
 
       If CLARC finds no clusters, then this file will just contain a message indicating that no clusters were found.
 
-   - roary_clarc_gene_presence_absence.csv
+   - ```roary_clarc_gene_presence_absence.csv```
 
      csv file that contains the modified version of the input pangenome csv presence absence file. This is in the format of the Roary csv output, since Panaroo also uses this format. The new         names of condensed clusters will be the old names joined by dashes. For example: 'COG1-COG2-COG3-' for a 3 COG cluster identified by CLARC.
 
      For each cluster, the other metadata information within the table (e.g. Annotation, Genome fragment, etc.) will be the entries of the original COGs, in order, joined by a comma. For             example, the 'Genome Fragment' column of the previous example 3 COG cluster would look like 'num1, num2, num3'. 
 
-   - clarc_condensed_gene_pres_abs_binary.csv
+   - ```clarc_condensed_gene_pres_abs_binary.csv```
 
      csv file containing the 'binary version' of the condensed roary_clarc_gene_presence_absence.csv results. This means that instead of being formatted as the Roary/Panaroo output, it will be       formatted as a simple presence absence table where each row is a sample used in the pangenome analysis and each column is a COG. If the COG is present in the sample, the value                   will be a 1 and otherwise it will be 0.
-       
-   - clarc_condensed_presence_absence.csv
 
-     csv file containing the presence absence matrix for the CLARC re-defined accessory COG definitions. COGs in core clusters are removed and those in accessory clusters are collapsed into a        new cluster. The name of the new clusters will be the names of the original COGs forming the cluster, joined by slashes. For example: 'COG1/COG2/COG3/' for a 3 COG cluster identified by         CLARC.
-     
-   - clarc_acc_cog_seqs.fasta
+   - ```clarc_population_acc_presence_absence.csv``` and ```clarc_population_core_presence_absence.csv```
 
-      fasta file containing the representative sequences of the new CLARC accessory COG definitions. The entries in this file will correspond to the COGs in the                                        ```clarc_condensed_presence_absence.csv``` output file. The COG name will be the fasta entry identifier, with new clusters having the appropiate cluster name. For clusters, the longest          sequence between the individual representative sequences of each COG is chosen as the cluster representative sequence.
+      In addition to the full condensed matrix, CLARC will filter for the accessory and core genes only within the specified population (the samples in the ```needed_sample_names.txt``` input         file) and provide a csv file with the binary presence absence table for only these accessory/core genes. The frequency thresholds use to filter will be 5-95% for accessory genes and >95%        for core genes, unless different thresholds are specified when running clarc.
+        
+   - ```clarc_acc_cog_seqs.fasta``` and ```clarc_core_cog_seqs.fasta```
+
+     fasta file containing the representative sequences of the post-CLARC accessory/core COG definitions. The entries in this file will correspond to the COGs in the                                  ```clarc_population_acc_presence_absence.csv``` and ```clarc_population_core_presence_absence.csv``` output files. The COG name will be the fasta entry identifier, with new clusters            having the appropiate cluster name. For clusters, the longest sequence between the individual representative sequences of each COG is chosen as the condensed cluster representative              sequence.
      
-   - accessory_cluster_cogs.txt and core_cluster_cogs.txt
+   - ```accessory_cluster_cogs.txt``` and ```core_cluster_cogs.txt```
 
      txt files that include a list of the unique original COGs present in the accessory and core clusters identified by CLARC. No information on the actual clusters (which COGs are connected to      which) is included here, just the list of the original COGs that belong to any cluster.
 
-   - accessory_cluster_summary.csv and core_cluster_summary.csv
+   - ```accessory_cluster_summary.csv``` and ```core_cluster_summary.csv```
 
    csv file specifying the compositions of each accessory and core cluster identified by CLARC. The number of columns will depend on the number of members in the largest cluster. The original      frequency in the population of each COG member is also included (freq_cogX) as well as the new frequency of the re-defined cluster (freq_sum).
    
@@ -227,33 +227,33 @@ Intermediate output files are:
 
 In the filtering step (before CLARC re-definition), 5 files are created:
 
-   - population_accessory_presence_absence.csv
+   - ```population_accessory_presence_absence.csv```
 
       csv file containing the presence absence matrix for the _accessory_ genes within the samples specified in the ```needed_sample_names.txt``` input file. So, only COGs present in between          5-95% of those samples will be included here (if run on the default parameters). This is just a filtered output from the original pangenome analysis, before running the CLARC clustering         algorithm.
      
-   - accessory_rep_seqs.fasta
+   - ```accessory_rep_seqs.fasta```
 
       fasta file containing the representative DNA sequences of all _accessory_ COGs identified in the given population of interest. The entries in this file will correspond to the COGs in the        ```population_accessory_presence_absence.csv``` output file. The COG name (as given by the pangenome tool) will be the fasta entry identifier. 
 
-   - accessory_rep_protein_seqs.fasta
+   - ```accessory_rep_protein_seqs.fasta```
 
       fasta file containing the representative protein sequences of all accessory COGs identified in the given population of interest. It is just the sequences in the                                  ```accessory_rep_seqs.fasta``` file translated from DNA to protein. The pipeline will internally use these protein sequences to functionally annotate the accessory COGs using the EggNOG         database.
 
-   - population_core_presence_absence.csv
+   - ```population_core_presence_absence.csv```
 
       csv file containing the presence absence matrix for the _core_ genes within the samples specified in the ```needed_sample_names.txt``` input file. So, only COGs present in over 95% of           those samples will be included here (if run on default parameters). This is just a filtered output from the original pangenome analysis, before running the CLARC clustering algorithm.           Essentially it is the ```population_accessory_presence_absence.csv``` output, but for core genes instead of accessory.
 
-   - core_rep_seqs.fasta
+   - ```core_rep_seqs.fasta```
 
       fasta file containing the representative DNA sequences of all _core_ COGs identified in the given population of interest. Likewise, this file is equivalent to the                                ```accessory_rep_seqs.fasta``` output file, but for core genes instead of accessory.
 
 ### linkage folder
 
-   - acc_pXX_matrix.csv
+   - ```acc_pXX_matrix.csv```
 
      csv files that are pairwise matrices with counts of genomes that show the different states of co-occurrence between every possible pair of accessory COGs. The possible states are: genomes       where both COGs are observed together (P11), genomes where neither COG is observed (P00), or genomes where only one of the COGs is observed (P10 and P01). Thus, 4 of these matrices are          generated, one per co-occurrence state.
 
-   - acc_linkage_co-occur.csv
+   - ```acc_linkage_co-occur.csv```
 
      csv file containing a pairwise metric of linkage. It is internally calculated using the counts in the previous ```acc_pXX_matrix.csv``` matrices, with the following equation:
 
@@ -269,7 +269,7 @@ In the filtering step (before CLARC re-definition), 5 files are created:
 
 Various files are created here, since a BLAST database is built from the accessory cog sequence fasta file. However the only relevant file is the one containing the results for the all vs. all accessory COG BLAST:
 
-   - blastn_acccogs_allvall.tsv
+   - ```blastn_acccogs_allvall.tsv```
 
      tsv file of the BLAST results with 12 columns, with the following headers:
 
@@ -279,7 +279,7 @@ Various files are created here, since a BLAST database is built from the accesso
       
 ### eggnog folder
 
-   - acc_cog_eggnog_annotations.csv
+   - ```acc_cog_eggnog_annotations.csv```
 
      csv file containing three columns that include the inputs and results of the EggNOG functional annotation. The first column in the accessory COG name, the second is the protein sequence         that was queried, and the third column is the EggNOG functional group identified for that accessory COG.
 
@@ -317,7 +317,7 @@ Various files are created here, since a BLAST database is built from the accesso
 
      More information about these functional group classifications can be found in the [COG Database NIH website](https://www.ncbi.nlm.nih.gov/research/cog/#).
 
-   - eggnog_group_cog_names.csv
+   - ```eggnog_group_cog_names.csv```
 
      csv containing a summary of the COGs found in each category. The column headers are the categories, and each column has the list of COGs identified in that category. 
 
