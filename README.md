@@ -92,7 +92,7 @@ If the version appears, then the installation was successful!
 
 #### Description of inputs
 
-CLARC's default is to take the results of a [Roary](https://github.com/sanger-pathogens/Roary) pangenome analysis as input. However, it can also accept results from the [Panaroo](https://github.com/gtonkinhill/panaroo) pipeline if the ```--panaroo``` flag is specified. More information on the panaroo usage in the [full usage](#full-usage) section of this documentation. Basic usage will assume that Roary was used to generate the pangenome.
+CLARC's default is to take the results of a [Roary](https://github.com/sanger-pathogens/Roary) pangenome analysis as input. However, it can also accept results from the [Panaroo](https://github.com/gtonkinhill/panaroo) pipeline if the ```--panaroo``` flag is specified. More information on the panaroo usage in the [Inputs for Panaroo](#inputs-for-panaroo) subsection of this documentation.
 
 From Roary, CLARC uses two output files: The ```gene_presence_absence.csv``` file which contains a presence absence matrix with all the COGs identified by Roary and ```pan_genome_reference.fa``` which is a fasta file containing the representative sequences of these genes. The representative sequence is the longest instance of that COG across all samples where that COG was called. The .csv file contains ALL COGs called by Roary and not only core/accessory. Do not rename these files, as CLARC will look for them by name.
 
