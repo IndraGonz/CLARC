@@ -341,5 +341,5 @@ If you have trouble with any of the steps shown here, please let me know! You ca
 
 ## Citing
 
-🚧🚧 Coming soon, send me good vibes if you can spare them 🚧🚧
-
+Pre-print link: https://www.biorxiv.org/content/10.1101/2024.12.18.629228v1 
+BioRxiv DOI: https://doi.org/10.1101/2024.12.18.629228 
