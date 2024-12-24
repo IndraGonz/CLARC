@@ -344,5 +344,3 @@ If you have trouble with any of the steps shown here, please let me know! You ca
  Linkage-based ortholog refinement in bacterial pangenomes with CLARC
 Indra Gonzalez Ojeda, Samantha G Palace, Pamela P Martinez, Taj Azarian, Lindsay R Grant, Laura Hammitt, Bill Hanage, Marc Lipsitch
 bioRxiv 2024.12.18.629228; doi: https://doi.org/10.1101/2024.12.18.629228 
-
-link: https://www.biorxiv.org/content/10.1101/2024.12.18.629228v1
