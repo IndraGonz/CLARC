@@ -13,281 +13,176 @@
 
 # ### Import necessary packages
 
+import os
+import time
+import random
 import requests
+import pandas as pd
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from Bio import SeqIO
 from Bio.Seq import Seq
-from Bio.SeqUtils import seq3
-import pandas as pd
-import re
-import itertools
-import time
-import os
+
+# Starting from CLARC v1.1.3
+# Revision list:
+#- Parallelized submission process to the EggNOG API, choosing the optimal amount of parallel jobs from the API response time
+#- Made sure to put latent time between the jobs as to not exceed the request limits (this caps the efficiency but it's good practice)
+#- Made the commands to summarize the COG functional category results more efficient
 
 # ### EggNOG annotation through the website database querying
 
-def get_functional_groups(out_path):
+def get_functional_groups(out_path, max_cores):
 
-    #fasta_path = out_path+'/accessory_rep_seqs.fasta'
-    fasta_path = out_path+'/accessory_rep_seqs.fasta'
+    """Main function to process sequences and store EggNOG annotations."""
 
-    # Function to submit sequences to the eggnog database website
+    session = requests.Session()
+    max_cores = max(1, max_cores // 2)  # Ensure at least 1 core is used
 
-    def submit_sequence(sequence, max_retries=3, delay=1):
+    def submit_sequence(sequence, max_retries=3):
+        """Submits a protein sequence to EggNOG API with retry logic."""
         url = "http://eggnogapi5.embl.de/fast_webscan"
         headers = {
             "User-Agent": "Mozilla/5.0",
             "Accept": "application/json, text/plain, */*",
-            "Accept-Language": "en-US,en;q=0.5",
-            "Accept-Encoding": "gzip, deflate",
             "Content-Type": "application/json;charset=utf-8",
-            "Origin": "http://eggnog5.embl.de",
-            "Connection": "keep-alive",
-            "Referer": "http://eggnog5.embl.de/",
-            "DNT": "1",
-            "Sec-GPC": "1"
         }
-        data = {
-            "fasta": sequence,
-            "nqueries": 1,
-            "db": "euk"
-        }
+        data = {"fasta": sequence, "nqueries": 1, "db": "bact"}
 
-        retries = 0
-        while retries < max_retries:
-            response = requests.post(url, headers=headers, json=data)
-            if response.status_code == 200:
-                return response.json()
-            else:
-                print(f"Failed to submit sequence. Retrying ({retries+1}/{max_retries})...")
-                retries += 1
-                time.sleep(delay)
+        for attempt in range(max_retries):
+            try:
+                response = session.post(url, headers=headers, json=data)
+                if response.status_code == 200:
+                    return response.json()
+                elif response.status_code == 429:  # Too Many Requests
+                    wait_time = 2 ** attempt  # Exponential backoff
+                    print(f"Rate limit hit! Waiting {wait_time} sec...")
+                    time.sleep(wait_time)
+                elif response.status_code in [500, 503]:
+                    wait_time = random.uniform(1, 3)
+                    print(f"Server error {response.status_code}. Retrying in {wait_time:.1f} sec...")
+                    time.sleep(wait_time)
+                else:
+                    print(f"Failed request (status {response.status_code}). Retrying...")
 
-        print("Max retries reached. Failed to submit sequence.")
+            except requests.exceptions.RequestException as e:
+                print(f"Request error: {e}")
+
+            time.sleep(random.uniform(0.05, 0.1))
+
+        print("Max retries reached; failed to submit sequence.")
         return None
 
-    # Function to translate DNA sequences to protein sequences
-
     def translate_dna_to_protein(dna_sequence):
-        dna_seq = Seq(dna_sequence)
-        protein_seq = dna_seq.translate()
-        # Remove the asterisk (*) at the end, which symbolizes a stop codon but confuses the database
-        if protein_seq.endswith("*"):
-            protein_seq = protein_seq[:-1]
-        return str(protein_seq)
-
-    # Extract most common functional groups from the top 5 hits in the eggnog database website query
+        """Translates DNA to a protein sequence, removing stop codon (*)"""
+        return str(Seq(dna_sequence).translate()).rstrip("*")
 
     def extract_functional_group(sequence_result):
-        seq_matches = sequence_result.get('seq_matches', [])
+        """Extracts the most common functional group from the EggNOG API response."""
+        if not sequence_result:
+            return 'NH'
+
         funcat_counts = {}
-        max_funcat = None
-        max_count = 0
-
-        for match in seq_matches:
-            hits = match.get('hit', {}).get('matches', [])
-            # Consider only the top 5 hits
-            for hit in hits[:5]:
+        for match in sequence_result.get('seq_matches', []):
+            for hit in match.get('hit', {}).get('matches', [])[:5]:
                 funcat = hit.get('funcat')
-                funcat_counts[funcat] = funcat_counts.get(funcat, 0) + 1
-                if funcat_counts[funcat] > max_count:
-                    max_count = funcat_counts[funcat]
-                    max_funcat = funcat
+                if funcat:
+                    funcat_counts[funcat] = funcat_counts.get(funcat, 0) + 1
 
-        return max_funcat
+        return max(funcat_counts, key=funcat_counts.get, default='NH')
 
-    # Make dataframe for results
-    eggnog_functional = pd.DataFrame(columns=['cog','prot_sequence','functional_group'])
-    counter = -1
-
-    sequences = SeqIO.parse(fasta_path, "fasta")
-
-    start_time = time.time()  # Start timing
-
-    # Iterate over sequences, translate, and extract functional group
-    for sequence in sequences:
-        counter = counter + 1
-
-        translated_sequence = translate_dna_to_protein(str(sequence.seq))
+    def process_sequence(seq):
+        """Processes a single sequence: translates DNA, submits to API, extracts functional group."""
+        translated_sequence = translate_dna_to_protein(str(seq.seq))
         sequence_result = submit_sequence(translated_sequence)
         functional_group = extract_functional_group(sequence_result)
-        if functional_group:
-            funct_group = list(functional_group)[0]
+
+        return {
+            'cog': seq.id,
+            'prot_sequence': translated_sequence,
+            'functional_group': functional_group
+        }
+
+    def measure_api_speed():
+        """Tests API response time to determine optimal concurrency."""
+        test_seq = "ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG"
+        translated_seq = translate_dna_to_protein(test_seq)
+
+        start_time = time.time()
+        response = submit_sequence(translated_seq)
+        elapsed_time = time.time() - start_time
+
+        return elapsed_time if response else None
+
+    def auto_tune_n_jobs():
+        """Dynamically adjusts parallel job count based on API speed."""
+        times = [measure_api_speed() for _ in range(3)]
+        avg_time = sum(times) / len(times) if all(times) else None
+
+        if avg_time is None:
+            return 2
+
+        if avg_time < 1:
+            return min(20, max_cores)
+        elif avg_time < 3:
+            return min(12, max_cores)
+        elif avg_time < 5:
+            return min(6, max_cores)
         else:
-            funct_group = 'NH'
+            return 2
 
-        eggnog_functional.at[counter, 'cog'] = sequence.id
-        eggnog_functional.at[counter, 'functional_group'] = funct_group
-        eggnog_functional.at[counter, 'prot_sequence'] = translated_sequence
+    ### Start Processing ###
+    fasta_path = os.path.join(out_path, 'accessory_rep_seqs.fasta')
 
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    print("Annotations completed in "+str(elapsed_time)+" seconds")
+    if not os.path.exists(fasta_path):
+        print(f"Error: Input file '{fasta_path}' not found.")
+        return
 
-    # Create linkage folder to put the results there
-    # Specify the directory path you want to create
-    eggnog_path = out_path+"/eggnog"
+    sequences = list(SeqIO.parse(fasta_path, "fasta"))
 
-    # Check if the directory already exists
-    if not os.path.exists(eggnog_path):
-        # Create the directory
-        os.makedirs(eggnog_path)
+    if not sequences:
+        print("Error: No sequences found in the input file.")
+        return
 
-    eggnog_functional.to_csv(eggnog_path+'/acc_cog_eggnog_annotations.csv', index=False)
+    start_time = time.time()
 
-    # Now to summarize the COGs that are part of each eggnog functional group
-    # Only get COG names with exact match
+    optimal_n_jobs = auto_tune_n_jobs()
 
-    # A
-    eggnog_acc_A = eggnog_functional[eggnog_functional["functional_group"] == 'A']
-    eggnog_hit_cogs_A =  list(eggnog_acc_A["cog"])
+    results = []
+    with ThreadPoolExecutor(max_workers=optimal_n_jobs) as executor:
+        future_to_seq = {executor.submit(process_sequence, seq): seq.id for seq in sequences}
+        for future in as_completed(future_to_seq):
+            results.append(future.result())
 
-    # B
-    eggnog_acc_B = eggnog_functional[eggnog_functional["functional_group"] == 'B']
-    eggnog_hit_cogs_B =  list(eggnog_acc_B["cog"])
+    eggnog_functional = pd.DataFrame(results)
 
-    # C
-    eggnog_acc_C = eggnog_functional[eggnog_functional["functional_group"] == 'C']
-    eggnog_hit_cogs_C =  list(eggnog_acc_C["cog"])
+    eggnog_path = os.path.join(out_path, "eggnog")
+    os.makedirs(eggnog_path, exist_ok=True)
+    eggnog_functional.to_csv(os.path.join(eggnog_path, 'acc_cog_eggnog_annotations.csv'), index=False)
 
-    # D
-    eggnog_acc_D = eggnog_functional[eggnog_functional["functional_group"] == 'D']
-    eggnog_hit_cogs_D =  list(eggnog_acc_D["cog"])
+    unique_groups = set("".join(eggnog_functional["functional_group"].dropna().unique()))
+    unique_groups.add("NH")
+    unique_groups.add("eggnog_mixed")
 
-    # E
-    eggnog_acc_E = eggnog_functional[eggnog_functional["functional_group"] == 'E']
-    eggnog_hit_cogs_E =  list(eggnog_acc_E["cog"])
+    grouped_cogs = {f"eggnog_{g}": [] for g in sorted(unique_groups)}
+    grouped_cogs["all_acc_COGs"] = []
+    grouped_cogs["eggnog_mixed"] = []
 
-    # F
-    eggnog_acc_F = eggnog_functional[eggnog_functional["functional_group"] == 'F']
-    eggnog_hit_cogs_F =  list(eggnog_acc_F["cog"])
+    for _, row in eggnog_functional.iterrows():
+        cog = row["cog"]
+        func_group = row["functional_group"]
 
-    # G
-    eggnog_acc_G = eggnog_functional[eggnog_functional["functional_group"] == 'G']
-    eggnog_hit_cogs_G =  list(eggnog_acc_G["cog"])
+        grouped_cogs["all_acc_COGs"].append(cog)
 
-    # H
-    eggnog_acc_H = eggnog_functional[eggnog_functional["functional_group"] == 'H']
-    eggnog_hit_cogs_H =  list(eggnog_acc_H["cog"])
+        if len(func_group) > 1 and func_group not in ["NH", "NA"]:
+            grouped_cogs["eggnog_mixed"].append(cog)
+        else:
+            grouped_cogs.setdefault(f"eggnog_{func_group}", []).append(cog)
 
-    # I
-    eggnog_acc_I = eggnog_functional[eggnog_functional["functional_group"] == 'I']
-    eggnog_hit_cogs_I =  list(eggnog_acc_I["cog"])
+    functionalCOG_namelist = pd.DataFrame(dict([(k, pd.Series(v)) for k, v in grouped_cogs.items()]))
+    functionalCOG_namelist.to_csv(os.path.join(eggnog_path, 'eggnog_group_cog_names.csv'), index=False)
 
-    # J
-    eggnog_acc_J = eggnog_functional[eggnog_functional["functional_group"] == 'J']
-    eggnog_hit_cogs_J =  list(eggnog_acc_J["cog"])
-
-    # K
-    eggnog_acc_K = eggnog_functional[eggnog_functional["functional_group"] == 'K']
-    eggnog_hit_cogs_K =  list(eggnog_acc_K["cog"])
-
-    # L
-    eggnog_acc_L = eggnog_functional[eggnog_functional["functional_group"] == 'L']
-    eggnog_hit_cogs_L =  list(eggnog_acc_L["cog"])
-
-    # M
-    eggnog_acc_M = eggnog_functional[eggnog_functional["functional_group"] == 'M']
-    eggnog_hit_cogs_M =  list(eggnog_acc_M["cog"])
-
-    # N
-    eggnog_acc_N = eggnog_functional[eggnog_functional["functional_group"] == 'N']
-    eggnog_hit_cogs_N =  list(eggnog_acc_N["cog"])
-
-    # O
-    eggnog_acc_O = eggnog_functional[eggnog_functional["functional_group"] == 'O']
-    eggnog_hit_cogs_O =  list(eggnog_acc_O["cog"])
-
-    # P
-    eggnog_acc_P = eggnog_functional[eggnog_functional["functional_group"] == 'P']
-    eggnog_hit_cogs_P =  list(eggnog_acc_P["cog"])
-
-    # Q
-    eggnog_acc_Q = eggnog_functional[eggnog_functional["functional_group"] == 'Q']
-    eggnog_hit_cogs_Q =  list(eggnog_acc_Q["cog"])
-
-    # T
-    eggnog_acc_T = eggnog_functional[eggnog_functional["functional_group"] == 'T']
-    eggnog_hit_cogs_T =  list(eggnog_acc_T["cog"])
-
-    # U
-    eggnog_acc_U = eggnog_functional[eggnog_functional["functional_group"] == 'U']
-    eggnog_hit_cogs_U =  list(eggnog_acc_U["cog"])
-
-    # V
-    eggnog_acc_V = eggnog_functional[eggnog_functional["functional_group"] == 'V']
-    eggnog_hit_cogs_V =  list(eggnog_acc_V["cog"])
-
-    # Y
-    eggnog_acc_Y = eggnog_functional[eggnog_functional["functional_group"] == 'Y']
-    eggnog_hit_cogs_Y =  list(eggnog_acc_Y["cog"])
-
-    # Z
-    eggnog_acc_Z = eggnog_functional[eggnog_functional["functional_group"] == 'Z']
-    eggnog_hit_cogs_Z =  list(eggnog_acc_Z["cog"])
-
-    # R
-    eggnog_acc_R = eggnog_functional[eggnog_functional["functional_group"] == 'R']
-    eggnog_hit_cogs_R =  list(eggnog_acc_R["cog"])
-
-    # S
-    eggnog_acc_S = eggnog_functional[eggnog_functional["functional_group"] == 'S']
-    eggnog_hit_cogs_S =  list(eggnog_acc_S["cog"])
-
-    # NH
-    eggnog_acc_NH = eggnog_functional[eggnog_functional["functional_group"] == 'NH']
-    eggnog_hit_cogs_NH =  list(eggnog_acc_NH["cog"])
-
-    # Mixed
-    eggnog_hit_cogs_mixed = []
-    for i in range(len(eggnog_functional)):
-        if eggnog_functional.iloc[i]["functional_group"] != 'NH':
-            if eggnog_functional.functional_group.str.len()[i] > 1:
-                cog = eggnog_functional.iloc[i]["cog"]
-                eggnog_hit_cogs_mixed.append(cog)
-
-
-    # Create a dataframe per cog functional group
-    # All
-    acc_gene_names = list(eggnog_functional["cog"])
-    all_cogs = pd.DataFrame({'all_acc_COGs': acc_gene_names})
-
-    # Eggnog
-    eggnog_A = pd.DataFrame({'eggnog_A': sorted(eggnog_hit_cogs_A)})
-    eggnog_B = pd.DataFrame({'eggnog_B': sorted(eggnog_hit_cogs_B)})
-    eggnog_C = pd.DataFrame({'eggnog_C': sorted(eggnog_hit_cogs_C)})
-    eggnog_D = pd.DataFrame({'eggnog_D': sorted(eggnog_hit_cogs_D)})
-    eggnog_E = pd.DataFrame({'eggnog_E': sorted(eggnog_hit_cogs_E)})
-    eggnog_F = pd.DataFrame({'eggnog_F': sorted(eggnog_hit_cogs_F)})
-    eggnog_G = pd.DataFrame({'eggnog_G': sorted(eggnog_hit_cogs_G)})
-    eggnog_H = pd.DataFrame({'eggnog_H': sorted(eggnog_hit_cogs_H)})
-    eggnog_I = pd.DataFrame({'eggnog_I': sorted(eggnog_hit_cogs_I)})
-    eggnog_J = pd.DataFrame({'eggnog_J': sorted(eggnog_hit_cogs_J)})
-    eggnog_K = pd.DataFrame({'eggnog_K': sorted(eggnog_hit_cogs_K)})
-    eggnog_L = pd.DataFrame({'eggnog_L': sorted(eggnog_hit_cogs_L)})
-    eggnog_M = pd.DataFrame({'eggnog_M': sorted(eggnog_hit_cogs_M)})
-    eggnog_N = pd.DataFrame({'eggnog_N': sorted(eggnog_hit_cogs_N)})
-    eggnog_O = pd.DataFrame({'eggnog_O': sorted(eggnog_hit_cogs_O)})
-    eggnog_P = pd.DataFrame({'eggnog_P': sorted(eggnog_hit_cogs_P)})
-    eggnog_Q = pd.DataFrame({'eggnog_Q': sorted(eggnog_hit_cogs_Q)})
-    eggnog_T = pd.DataFrame({'eggnog_T': sorted(eggnog_hit_cogs_T)})
-    eggnog_U = pd.DataFrame({'eggnog_U': sorted(eggnog_hit_cogs_U)})
-    eggnog_V = pd.DataFrame({'eggnog_V': sorted(eggnog_hit_cogs_V)})
-    eggnog_Y = pd.DataFrame({'eggnog_Y': sorted(eggnog_hit_cogs_Y)})
-    eggnog_Z = pd.DataFrame({'eggnog_Z': sorted(eggnog_hit_cogs_Z)})
-    eggnog_R = pd.DataFrame({'eggnog_R': sorted(eggnog_hit_cogs_R)})
-    eggnog_S = pd.DataFrame({'eggnog_S': sorted(eggnog_hit_cogs_S)})
-    eggnog_NH = pd.DataFrame({'eggnog_NH': sorted(eggnog_hit_cogs_NH)})
-    eggnog_mixed = pd.DataFrame({'eggnog_mixed': sorted(eggnog_hit_cogs_mixed)})
-
-    # Concatenate dataframes
-    functionalCOG_namelist = pd.concat([all_cogs,eggnog_A,eggnog_B,eggnog_C,eggnog_D,eggnog_E,eggnog_F,eggnog_G,eggnog_H,eggnog_I,eggnog_J,eggnog_K,eggnog_L,eggnog_M,eggnog_N,eggnog_O,eggnog_P,eggnog_Q,eggnog_T,eggnog_U,eggnog_V,eggnog_Y,eggnog_Z,eggnog_R,eggnog_S,eggnog_NH,eggnog_mixed], axis=1)
-
-    functionalCOG_namelist.to_csv(eggnog_path+'/eggnog_group_cog_names.csv', index=False)
-
-    # Export fasta with protein sequences for the accessory genes
-    protein_fasta_path = out_path+'/accessory_rep_protein_seqs.fasta'
+    protein_fasta_path = os.path.join(out_path, 'accessory_rep_protein_seqs.fasta')
     with open(protein_fasta_path, "w") as fasta_file:
-        for index, row in eggnog_functional.iterrows():
-            cog = row['cog']
-            sequence = row['prot_sequence']
-            fasta_file.write(f">{cog}\n{sequence}\n")
+        for row in results:
+            fasta_file.write(f">{row['cog']}\n{row['prot_sequence']}\n")
+
+    print(f"EggNOG annotations completed in {time.time() - start_time:.2f} seconds")

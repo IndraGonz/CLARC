@@ -7,107 +7,84 @@
 #
 # For each COG pair, this script first does a pairwise count of: the number of times they both appear (p11), the number of times neither appears (p00), and the number of times that one appears but not the other (p01 and p10). Then it calculates a linkage metric by taking the log of the product log[p00*p11)/(p01*p10)], this is also a pairwise metric.
 #
-# So, this script outputs 5 files:
+# So, this script outputs 4 files:
 #
 # - p00, p11, p10 and p01 matrices with counts for each state
-# - log co-occurrence matrix
 
 ### Import necessary packages
 
+from joblib import Parallel, delayed
 import pandas as pd
 import numpy as np
-import scipy as scipy
 import itertools
-import seaborn as sns
-from scipy.stats import linregress
-import matplotlib.pyplot as plt
-import fastcluster
 import os
-from joblib import Parallel, delayed
+
+# Starting from CLARC v1.1.3
+#Revision list:
+
+#- We don't need the linkage co-occur matrix. I've eliminated that part of the code.
+#- Optimizing in a few ways:
+      #- Instead of a loop, convert presence absence matrix to string and count co-occurance values
+      #- Use numpy for this which is more efficient
+      #- Because the presence absence only has 0s and 1s, we can use uint8 instead of int64 so save computing power
 
 ### Define function that calculates linkage matrices
 
-def get_linkage_matrices(out_path):
+def get_linkage_matrices(out_path, max_cores):
 
-    pres_abs_path = out_path+'/population_accessory_presence_absence.csv'
+    max_cores = max_cores // 2
 
-    # Read presence absence matrix
-    pan_acc = pd.read_csv(pres_abs_path, index_col=0)
+    def compute_pairwise_counts(i, j, pan_acc_str):
+        """Instead of looping like we had previously been doing, we will compute the pairwise counts with numpy. This should be more efficient and improve CLARC runtime"""
+        pairs = np.char.add(pan_acc_str[:, i], pan_acc_str[:, j])
+        unique, counts = np.unique(pairs, return_counts=True)
+        return i, j, dict(zip(unique, counts))
 
-    # Get list of COG names
-    cog_names = list(pan_acc.columns.values)
+    pres_abs_path = os.path.join(out_path, 'population_accessory_presence_absence.csv')
 
-    # Get number of accessory COGs (this will be the size of the matrices)
-    cog_num = len(cog_names)
+    # Read presence absence matrix efficiently and convert to uint8 to save memory
+    pan_acc = pd.read_csv(pres_abs_path, index_col=0).astype(np.uint8)
 
-    # Define a function to calculate co-occurrence
-    def calculate_occurrences(cog1, cog2, cog1_series, cog2_series):
+    # Convert dataframe to a NumPy string array for efficiency
+    pan_acc_str = pan_acc.to_numpy(dtype='<U1')
 
-        occur = (cog1_series.astype(str) + cog2_series.astype(str)).astype('category')
+    # Get column names
+    columns = pan_acc.columns
+    matrix_shape = (len(columns), len(columns))
 
-        # Count occurrences using value_counts
-        p00 = (occur == '00').sum()
-        p11 = (occur == '11').sum()
-        p10 = (occur == '10').sum()
-        p01 = (occur == '01').sum()
+    # Initialize matrices as NumPy arrays for faster computation
+    P11_matrix = np.zeros(matrix_shape, dtype=int)
+    P10_matrix = np.zeros(matrix_shape, dtype=int)
+    P01_matrix = np.zeros(matrix_shape, dtype=int)
+    P00_matrix = np.zeros(matrix_shape, dtype=int)
 
-        return p00, p11, p10, p01
+    # Convert column names to a list for indexing
+    col_list = list(columns)
+    col_index = {col: i for i, col in enumerate(col_list)}
 
-    # Create a blank matrix with n x n dimensions
-    linkage_p00_result = pd.DataFrame(np.nan, index=cog_names, columns=cog_names)
-    linkage_p11_result = pd.DataFrame(np.nan, index=cog_names, columns=cog_names)
-    linkage_p10_result = pd.DataFrame(np.nan, index=cog_names, columns=cog_names)
-    linkage_p01_result = pd.DataFrame(np.nan, index=cog_names, columns=cog_names)
+    # Compute pairwise counts in parallel
+    results = Parallel(n_jobs=max_cores, backend='loky')(delayed(compute_pairwise_counts)(i, j, pan_acc_str)
+                                                   for i, j in itertools.combinations(range(len(columns)), 2))
 
-    # Parallelize
-    results = Parallel(n_jobs=-1)(
-        delayed(calculate_occurrences)(cog1, cog2, pan_acc[cog1], pan_acc[cog2])
-        for i, cog1 in enumerate(cog_names)
-        for j, cog2 in enumerate(cog_names[i+1:], start=i+1)  # Start j from i+1 to avoid redundant calculations
-    )
+    # Populate matrices with computed counts
+    for i, j, count_dict in results:
+        P11_matrix[i, j] = P11_matrix[j, i] = count_dict.get('11', 0)
+        P10_matrix[i, j] = P10_matrix[j, i] = count_dict.get('10', 0)
+        P01_matrix[i, j] = P01_matrix[j, i] = count_dict.get('01', 0)
+        P00_matrix[i, j] = P00_matrix[j, i] = count_dict.get('00', 0)
 
-    # Assign values to result matrices
-    index = 0
-    for i, cog1 in enumerate(cog_names):
-        for j, cog2 in enumerate(cog_names[i+1:], start=i+1):
-            linkage_p00_result.at[cog1, cog2], linkage_p11_result.at[cog1, cog2], \
-                linkage_p10_result.at[cog1, cog2], linkage_p01_result.at[cog1, cog2] = results[index]
-            # Since matrices are symmetric, we can assign values to their mirrored positions
-            linkage_p00_result.at[cog2, cog1], linkage_p11_result.at[cog2, cog1], \
-                linkage_p10_result.at[cog2, cog1], linkage_p01_result.at[cog2, cog1] = results[index]
-            index += 1
+    # Convert NumPy matrices to Pandas DataFrames for exporting
+    P11_df = pd.DataFrame(P11_matrix, index=columns, columns=columns)
+    P10_df = pd.DataFrame(P10_matrix, index=columns, columns=columns)
+    P01_df = pd.DataFrame(P01_matrix, index=columns, columns=columns)
+    P00_df = pd.DataFrame(P00_matrix, index=columns, columns=columns)
 
-    # Convert dataframes to numpy arrays
-    p11_array = linkage_p11_result.to_numpy()
-    p00_array = linkage_p00_result.to_numpy()
-    p01_array = linkage_p01_result.to_numpy()
-    p10_array = linkage_p10_result.to_numpy()
-
-    # Initialize the result matrix with NaN values
-    linkage_logcoccur_result = np.full((cog_num, cog_num), np.nan)
-
-    # Calculate log co-occurrence using vectorized operations
-    p10p01 = p10_array * p01_array
-    zero_indices = p10p01 == 0
-    logl = np.log(np.divide(p11_array * p00_array, p10p01, where=~zero_indices))
-    logl[zero_indices] = np.nan
-
-    # Assign values to the result matrix
-    linkage_logcoccur_result = pd.DataFrame(logl, index=cog_names, columns=cog_names)
-    np.fill_diagonal(linkage_logcoccur_result.values, np.nan)
-
-    # Create linkage folder to put the results there
-    # Specify the directory path you want to create
-    link_path = out_path+"/linkage"
-
-    # Check if the directory already exists
-    if not os.path.exists(link_path):
-        # Create the directory
-        os.makedirs(link_path)
+    # Create linkage folder
+    link_path = os.path.join(out_path, "linkage")
+    os.makedirs(link_path, exist_ok=True)
 
     # Export results
-    linkage_p00_result.to_csv(link_path+"/acc_p00_matrix.csv", index=True)
-    linkage_p11_result.to_csv(link_path+"/acc_p11_matrix.csv", index=True)
-    linkage_p10_result.to_csv(link_path+"/acc_p10_matrix.csv", index=True)
-    linkage_p01_result.to_csv(link_path+"/acc_p01_matrix.csv", index=True)
-    linkage_logcoccur_result.to_csv(link_path+"/acc_linkage_co-occur.csv", index=True)
+    P00_df.to_csv(os.path.join(link_path, "acc_p00_matrix.csv"), index=True)
+    P11_df.to_csv(os.path.join(link_path, "acc_p11_matrix.csv"), index=True)
+    P10_df.to_csv(os.path.join(link_path, "acc_p10_matrix.csv"), index=True)
+    P01_df.to_csv(os.path.join(link_path, "acc_p01_matrix.csv"), index=True)

@@ -11,9 +11,6 @@ import pandas as pd
 import numpy as np
 import scipy as scipy
 import itertools
-import seaborn as sns
-from scipy.stats import linregress
-import matplotlib.pyplot as plt
 import fastcluster
 from itertools import combinations
 from Bio import SeqIO
@@ -22,31 +19,42 @@ from Bio.SeqRecord import SeqRecord
 import os
 import sys
 import shutil
+import math
+from collections import Counter, defaultdict
+import time
+
+# Starting from CLARC 1.1.3
+# Revision list:
+#  - We don't use or need the log co-occur matrix
+#- Made various parts of the code more efficient including:
+  #- In the step where the blastn results are being integrated into the pairwise P11 dataframe, I've optimized the way the query is done. It was previously done very inefficiently with itterrows, but now I build a lookup table which really improves performance. This was a big bottleneck.
+#- Added a BLASTN e-value minimum for the connections (<1e-10)
+#- Added a user defined threshold where the linkage parameter can be varied. For example, instead of finding pairs that perfectly exclude each other, you can find pairs that co-occur <1% of the time.
+#- Added a user defined threshold to relax the graph connectivity threshold. Instead of selecting fully connected clusters, now the user can select clusters that are 90% connected for example. However, this might make it so that some COGs appear in multiple clusters. To address this, we identify any COGs that appear in multiple clusters, and only keep them in the most connected of the clusters.
 
 # ## Identify CLARC clusters, condense them and generate output files
 
-def clarc_cleaning(in_path, out_path, panaroo_true, acc_upper, acc_lower, core_lower, clarc_identity):
+def clarc_cleaning(in_path, out_path, panaroo_true, acc_upper, acc_lower, core_lower, clarc_identity, linkage_cut, connection_cut):
 
     # Import counts for COG pairs that co-occur
     linkage_p11_path = out_path+"/linkage/acc_p11_matrix.csv"
     linkage_p11_result = pd.read_csv(linkage_p11_path ,low_memory=False, index_col=0)
 
-    # Import log co-occurrence matrix
-    linkage_logcoccur_path = out_path+"/linkage/acc_linkage_co-occur.csv"
-    linkage_logcoccur_result = pd.read_csv(linkage_logcoccur_path, low_memory=False, index_col=0)
-
     # Check COG pairs that never co-occur
-
     p11_coglist = linkage_p11_result.melt(ignore_index = False)
     p11_coglist = p11_coglist.reset_index()
     p11_coglist.columns = ['COG1','COG2','p11']
 
-    # Turning the log co-occur matrix into list
-    linkage_logcoccur_list = linkage_logcoccur_result.melt(ignore_index = False)
-    linkage_logcoccur_list = linkage_logcoccur_list.reset_index()
-    linkage_logcoccur_list.columns = ['COG1','COG2','log_cooccur']
+    # Import presence absence matrix
+    pres_abs_path = out_path+'/population_accessory_presence_absence.csv'
+    pan_acc = pd.read_csv(pres_abs_path, index_col=0, low_memory=False)
 
-    p11_coglist_zeros = p11_coglist[p11_coglist["p11"] == 0]
+    # Get number of co-occurrence events that would represent the percentage threshold given the number of samples
+    num_samples = len(pan_acc)
+    coccur_events = math.ceil(num_samples * linkage_cut)
+
+    # Get list of pairs that co-occur in less than the specified linkage threshold
+    p11_coglist_zeros = p11_coglist[p11_coglist["p11"] <= coccur_events]
 
     # Now we have to drop the duplicates from these dataframes
 
@@ -56,16 +64,13 @@ def clarc_cleaning(in_path, out_path, panaroo_true, acc_upper, acc_lower, core_l
 
     # Calculate COG frequencies in the population
 
-    # Import presence absence matrix
-    pres_abs_path = out_path+'/population_accessory_presence_absence.csv'
-    pan_acc = pd.read_csv(pres_abs_path, index_col=0, low_memory=False)
-
     # Calculate freqs of each COG in subpopulation dataset
     cog_freq = pan_acc.mean()
     cog_freq = cog_freq.transpose()
     cog_freq_df = cog_freq.to_frame()
     cog_freq_df = cog_freq_df.reset_index()
     cog_freq_df.columns = ['COG','freq']
+
     # Generate colums to be merged with cog pair dataframe
     cog_freq_df_cog1 = cog_freq_df.copy()
     cog_freq_df_cog1.columns = ['COG1','freq_cog1']
@@ -106,33 +111,36 @@ def clarc_cleaning(in_path, out_path, panaroo_true, acc_upper, acc_lower, core_l
     p11_coglist_freq.loc[p11_coglist_freq['funct_group_cog1']==p11_coglist_freq['funct_group_cog2'], 'eggnog_same_flag'] = 1
 
     # Adding blastn results for the accessory COGs against each other
-    blast_path = out_path+'/acc_blastn/blastn_acccogs_allvall.tsv'
+    blast_path = out_path + '/acc_blastn/blastn_acccogs_allvall.tsv'
     blastn_acccogs = pd.read_table(blast_path, header=None)
 
     # TSV output doesn't have column labels, so here I add them
-    column_labels = ['query_seq_ID', 'subject_seq_ID', 'percentage_identical_matches', 'align_length','num_mismatches','gap_open','align_start_query','align_end_query','align_start_subject', 'align_end_subject','e-value','bit_score']
+    column_labels = ['query_seq_ID', 'subject_seq_ID', 'percentage_identical_matches', 'align_length',
+                     'num_mismatches', 'gap_open', 'align_start_query', 'align_end_query',
+                     'align_start_subject', 'align_end_subject', 'e-value', 'bit_score']
     blastn_acccogs.columns = column_labels
 
-    # Add empty column to dataframe with cog pairs that exclude each other
-    p11_coglist_freq['blastn_iden_per'] = ""
+    # Resolve duplicates: Keep the row with the **largest align_length** for each (query_seq_ID, subject_seq_ID) pair
+    blastn_acccogs = blastn_acccogs.sort_values('align_length', ascending=False).drop_duplicates(subset=['query_seq_ID', 'subject_seq_ID'])
 
-    for row in p11_coglist_freq.iterrows():
+    # Create lookup tables using MultiIndex
+    blast_lookup = blastn_acccogs.set_index(['query_seq_ID', 'subject_seq_ID'])[['percentage_identical_matches', 'align_length', 'e-value']]
 
-        # Get COG names for row
-        cog1 = row[1].COG1
-        cog2 = row[1].COG2
+    # Convert tuples (COG1, COG2) into an index for lookup
+    lookup_keys = list(zip(p11_coglist_freq['COG1'], p11_coglist_freq['COG2']))
 
-        # Search in blast results dataframe
-        # Because Bakta includes different types of characters in the COG names, I have to update this line in the new 1.0.32 version
-        #blast_cog1cog2 = blastn_acccogs.query(f"query_seq_ID == '{cog1}' and subject_seq_ID == '{cog2}'")
-        # Makes query more robust
-        blast_cog1cog2 = blastn_acccogs[(blastn_acccogs['query_seq_ID'] == cog1) & (blastn_acccogs['subject_seq_ID'] == cog2)]
+    # Add new columns to p11_coglist_freq
+    p11_coglist_freq[['blastn_iden_per', 'blastn_align_length', 'blastn_e_value']] = blast_lookup.reindex(lookup_keys).values
 
-        # Check if it does have a hit
-        if blast_cog1cog2.empty:
-            p11_coglist_freq.at[row[0], 'blastn_iden_per'] = np.nan
-        else:
-            p11_coglist_freq.at[row[0], 'blastn_iden_per'] = blast_cog1cog2['percentage_identical_matches'].values[0]
+    # Get length of each queried acc COG
+
+    # Extract unique COG lengths where COG1 == COG2
+    cog_lengths = p11_coglist_freq[p11_coglist_freq['funct_group_cog1'] == p11_coglist_freq['funct_group_cog2']]
+    cog_length_dict = dict(zip(cog_lengths['funct_group_cog1'], cog_lengths['blastn_align_length']))
+
+    # Map lengths to COG1 and COG2 to create new columns
+    p11_coglist_freq['cog_len_1'] = p11_coglist_freq['funct_group_cog1'].map(cog_length_dict)
+    p11_coglist_freq['cog_len_2'] = p11_coglist_freq['funct_group_cog2'].map(cog_length_dict)
 
     # Same eggnog functional group
     samecog_condense = p11_coglist_freq[p11_coglist_freq['eggnog_same_flag'] == 1]
@@ -140,70 +148,137 @@ def clarc_cleaning(in_path, out_path, panaroo_true, acc_upper, acc_lower, core_l
     # High blastn sequence identity
     samecog_condense = samecog_condense[samecog_condense['blastn_iden_per'] >= clarc_identity]
 
-    # Get list of unique COGs
+    # Drop rows where COG1 is equal to COG2
+    samecog_condense = samecog_condense[samecog_condense['COG1'] != samecog_condense['COG2']]
 
+    # Keep only the entries where the alignment length covers at least 80% of the length of the shortest COG
+    #samecog_condense = samecog_condense[(samecog_condense["blastn_align_length"] / samecog_condense[["cog_len_1", "cog_len_2"]].min(axis=1)) > 0.80]
+
+    # Keep only entries where the e-value is above 1e-10
+    samecog_condense = samecog_condense[samecog_condense['blastn_e_value'] <= 1e-10]
+
+    # Find connected clusters above a connectivity threshold specified by the user (default is 100%, meaning fully connected)
     p11_zero_cog1_list = list(samecog_condense['COG1'])
     p11_zero_cog2_list = list(samecog_condense['COG2'])
 
     samegene_cogs = p11_zero_cog1_list + p11_zero_cog2_list
-    samegene_cogs_list = set(samegene_cogs)
-    samegene_cogs_list = list(samegene_cogs_list)
+    samegene_cogs_list = list(set(samegene_cogs))  # Unique COGs
 
-    # Loop through each COG that appears in the dataframe where COGs are in >1 pair
-
-    samegene_connected_cogs = pd.DataFrame(columns=['connected_COGs','group_number','group_length'])
+    # Initialize DataFrame to store connected groups
+    samegene_connected_cogs = pd.DataFrame(columns=['connected_COGs', 'group_number', 'group_length'])
     group = 0
 
+    # Iterate through each unique COG
     for cog in samegene_cogs_list:
+        # Get all COGs connected to `cog`
+        con = samecog_condense.query(f"COG1 == '{cog}' or COG2 == '{cog}'")
+        x = sorted(pd.concat([con['COG1'], con['COG2']]).unique())
+        xl = x.copy()
+        xl.remove(cog)  # Remove itself from the list
 
-        # Get COGs with which that COG has a relationship
-        con = samecog_condense.query(f"COG1 == '{cog}' or COG2 == '{cog}'") # Connections of the COG
-        x = sorted(pd.concat([con['COG1'],con['COG2']]).unique())
-        xl = sorted(pd.concat([con['COG1'],con['COG2']]).unique())
-        xl.remove(cog)
-
-        # Here I do a loop where if the COGs that have relationships to the main COG ONLY have relationships to each other, then it is added to the dataframe
-
+        # Ensure full connectivity or threshold-based grouping
         flag = 0
 
         for i in xl:
+            coni = samecog_condense.query(f"COG1 == '{i}' or COG2 == '{i}'")
+            y = sorted(pd.concat([coni['COG1'], coni['COG2']]).unique())
 
-            coni = samecog_condense.query(f"COG1 == '{i}' or COG2 == '{i}'") # Connections of the COG
-            y = sorted(pd.concat([coni['COG1'],coni['COG2']]).unique())
+            # If threshold = 1.0, enforce strict full connectivity (original logic)
+            if connection_cut == 1.0:
+                if set(y) == set(x):  # Must match exactly (fully connected)
+                    flag += 1
+            else:
+                # If threshold < 1.0, allow slightly looser grouping
+                common_connections = len(set(y) & set(x))  # Number of shared connections
+                total_possible_connections = len(x)  # Expected connections
+                connection_ratio = common_connections / total_possible_connections
+                if connection_ratio >= connection_cut:
+                    flag += 1
 
-            if y == x:
+        # Only add as a group if all members meet the threshold requirement
+        if flag == len(xl) if connection_cut == 1.0 else flag / len(xl) >= connection_cut:
+            group += 1
+            samegene_connected_cogs.loc[group-1, 'connected_COGs'] = x
+            samegene_connected_cogs.loc[group-1, 'group_number'] = group
+            samegene_connected_cogs.loc[group-1, 'group_length'] = len(x)
 
-                flag = flag + 1
-
-        if flag == len(xl):
-
-            group = group + 1
-
-            samegene_connected_cogs.loc[group-1,'connected_COGs'] = x
-            samegene_connected_cogs.loc[group-1,'group_number'] = group
-            samegene_connected_cogs.loc[group-1,'group_length'] = len(x)
-
+    # Convert the connected_COGs column to tuples for deduplication
     samegene_connected_cogs['connected_COGs'] = samegene_connected_cogs['connected_COGs'].apply(tuple)
+
+    # Remove duplicate clusters
     samegene_connected_cogs = samegene_connected_cogs.drop_duplicates(subset='connected_COGs', keep="first")
+
+    # Sort by largest group first
     samegene_connected_cogs = samegene_connected_cogs.sort_values(by=['group_length'], ascending=False)
+
+    # Reset index
     samegene_connected_cogs = samegene_connected_cogs.reset_index(drop=True)
+
+    ### STEP 1: FIND COGs APPEARING IN MULTIPLE GROUPS ###
+    # Since we are relaxing the connectivity parameter, this might happen
+    # Flatten the list of all COGs
+    all_cogs = [cog for group in samegene_connected_cogs["connected_COGs"] for cog in group]
+
+    # Count occurrences of each COG
+    cog_counts = Counter(all_cogs)
+
+    # Find COGs that appear in multiple groups
+    duplicate_cogs = {cog: count for cog, count in cog_counts.items() if count > 1}
+
+    ### STEP 2: FIX DUPLICATE COGs (Assign to Most Connected Group) ###
+    # Create a dictionary to track which COG belongs to which group based on **highest number of direct connections**
+    cog_to_group = {}
+
+    # Track COG connections within each group
+    cog_connection_counts = defaultdict(lambda: defaultdict(int))
+
+    # Count how many connections each COG has in each group
+    for index, row in samegene_connected_cogs.iterrows():
+        group_number = row['group_number']
+        connected_cogs = row['connected_COGs']
+
+        for cog in connected_cogs:
+            for other_cog in connected_cogs:
+                if cog != other_cog:
+                    cog_connection_counts[cog][group_number] += 1  # Count number of direct links in each group
+
+    # Assign each COG to the **group where it has the most direct connections**
+    for cog, group_dict in cog_connection_counts.items():
+        best_group = max(group_dict, key=group_dict.get)  # Group with highest connections
+        cog_to_group[cog] = best_group
+
+    # Rebuild clusters ensuring each COG appears only once, keeping them in the **most connected group**
+    unique_clusters = defaultdict(list)
+
+    for cog, group in cog_to_group.items():
+        unique_clusters[group].append(cog)
+
+    # Convert back to DataFrame
+    new_cluster_list = [{'connected_COGs': sorted(v), 'group_length': len(v)} for k, v in unique_clusters.items()]
+    samegene_connected_cogs = pd.DataFrame(new_cluster_list)
+
+    # Sort by largest group first
+    samegene_connected_cogs = samegene_connected_cogs.sort_values(by=['group_length'], ascending=False).reset_index(drop=True)
+
+    # Remove clusters with only one COG
+    samegene_connected_cogs = samegene_connected_cogs[samegene_connected_cogs['group_length'] > 1]
 
     if samegene_connected_cogs.empty:
 
-        clarc_summary_path = out_path+"/clarc_results"
+            clarc_summary_path = out_path+"/clarc_results"
 
-        if not os.path.exists(clarc_summary_path):
-            os.makedirs(clarc_summary_path)
+            if not os.path.exists(clarc_summary_path):
+                os.makedirs(clarc_summary_path)
 
-        out_text = clarc_summary_path+'/clarc_cluster_summary.txt'
-        with open(out_text, "a") as file:
-            file.write(f'Total COG clusters identified by CLARC: '+f'{0}\n')
-            file.write(f'Core COG clusters: '+f'{0}\n')
-            file.write(f'Unique COGs in core clusters: '+f'{0}\n')
-            file.write(f'Accessory COG clusters: '+f'{0}\n')
-            file.write(f'Unique COGs in accessory clusters: '+f'{0}\n')
+            out_text = clarc_summary_path+'/clarc_cluster_summary.txt'
+            with open(out_text, "a") as file:
+                file.write(f'Total COG clusters identified by CLARC: '+f'{0}\n')
+                file.write(f'Core COG clusters: '+f'{0}\n')
+                file.write(f'Unique COGs in core clusters: '+f'{0}\n')
+                file.write(f'Accessory COG clusters: '+f'{0}\n')
+                file.write(f'Unique COGs in accessory clusters: '+f'{0}\n')
 
-        sys.exit("No CLARC clusters found")
+            sys.exit("No CLARC clusters found")
 
     else:
 
