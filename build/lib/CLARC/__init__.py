@@ -9,6 +9,7 @@ import os
 import shutil
 from .filtering_acc_core import get_pop_acc_pres_abs, get_pop_core_pres_abs
 from .filtering_acc_core_panaroo import get_pop_acc_pres_abs_panaroo, get_pop_core_pres_abs_panaroo
+from .filtering_acc_core_ppanggo import get_pop_acc_pres_abs_ppango, get_pop_core_pres_abs_ppanggo
 from .get_linkage_matrix import get_linkage_matrices
 from .eggnog_annotations import get_functional_groups
 from .clarc_condense import clarc_cleaning
@@ -31,6 +32,7 @@ def main():
     parser.add_argument("--ci","--clarc-identity", default=95, type=float, help="BLASTN identity threshold CLARC uses as constraint to identity same gene clusters. Number from 0-100, default is 95 percent")
     parser.add_argument("--filter-only", action='store_true', help="If given, only run the filtering steps")
     parser.add_argument("--panaroo", action='store_true', help="If given, the input data will be from Panaroo and it will filter accordingly. Remember to provide the 'gene_data.csv' input")
+    parser.add_argument("--ppanggo", action='store_true', help="If given, the input data will be from PPanGGolin and it will filter accordingly. Remember to provide the appropiate inputs")
     parser.add_argument("--options", action='store_true', help="Show available options")
     parser.add_argument("--version", action='store_true', help="Show the version of the CLARC tool")
     parser.add_argument("--max_cores", type=int, default=os.cpu_count(), help="Maximum number of CPU cores to use for parallel tasks. Default is all available cores")
@@ -62,6 +64,7 @@ def main():
     core_lower = args.core_lower
     filter_only = args.filter_only
     panaroo = args.panaroo
+    ppanggo = args.ppanggo
     merge = args.merge
     ci = args.ci
     linkage_cut = args.linkage_cut
@@ -91,6 +94,11 @@ def main():
     else:
         panaroo_true = 0
 
+    if args.ppanggo:
+        ppanggo_true = 1
+    else:
+        ppanggo_true = 0
+
     if merge:
 
         print("Merging results from different CLARC runs to obtain final cluster list...")
@@ -108,6 +116,11 @@ def main():
 
                     get_pop_acc_pres_abs_panaroo(input_dir, output_dir, acc_upper, acc_lower)
                     get_pop_core_pres_abs_panaroo(input_dir, output_dir, core_lower)
+
+                elif ppanggo_true == 1:
+
+                    get_pop_acc_pres_abs_ppanggo(input_dir, output_dir, acc_upper, acc_lower)
+                    get_pop_core_pres_abs_ppanggo(input_dir, output_dir, core_lower)
 
                 else:
 

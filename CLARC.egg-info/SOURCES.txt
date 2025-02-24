@@ -7,6 +7,7 @@ CLARC/clarc_merge.py
 CLARC/eggnog_annotations.py
 CLARC/filtering_acc_core.py
 CLARC/filtering_acc_core_panaroo.py
+CLARC/filtering_acc_core_ppanggo.py
 CLARC/get_linkage_matrix.py
 CLARC/version.py
 CLARC.egg-info/CLARC_logo.svg
@@ -14,5 +15,7 @@ CLARC.egg-info/PKG-INFO
 CLARC.egg-info/SOURCES.txt
 CLARC.egg-info/dependency_links.txt
 CLARC.egg-info/entry_points.txt
+CLARC.egg-info/github_workflow_1.png
+CLARC.egg-info/github_workflow_2.png
 CLARC.egg-info/top_level.txt
 scripts/acccog_blastn.sh
