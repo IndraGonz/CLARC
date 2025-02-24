@@ -9,7 +9,7 @@ import os
 import shutil
 from .filtering_acc_core import get_pop_acc_pres_abs, get_pop_core_pres_abs
 from .filtering_acc_core_panaroo import get_pop_acc_pres_abs_panaroo, get_pop_core_pres_abs_panaroo
-from .filtering_acc_core_ppanggo import get_pop_acc_pres_abs_ppango, get_pop_core_pres_abs_ppanggo
+from .filtering_acc_core_ppanggo import get_pop_acc_pres_abs_ppanggo, get_pop_core_pres_abs_ppanggo
 from .get_linkage_matrix import get_linkage_matrices
 from .eggnog_annotations import get_functional_groups
 from .clarc_condense import clarc_cleaning
