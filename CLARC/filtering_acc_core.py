@@ -15,17 +15,15 @@ import pandas as pd
 import numpy as np
 import scipy as scipy
 from Bio import SeqIO
+import os
 
 ### Define functions
 
-# Function to filter for accessory cogs
+### Function to filter for accessory cogs
 
 def get_pop_acc_pres_abs(data_path, out_path, acc_upper, acc_lower):
 
-    # Now we filter by frequency per each dataset (this can change depending on the datasets we want to include)
-
     pres_abs_path = data_path+"/gene_presence_absence.csv"
-    sample_needed_path = data_path+'/needed_sample_names.txt'
 
     # Import Roary output
     igopan_all_roary = pd.read_csv(pres_abs_path, low_memory=False)
@@ -57,6 +55,19 @@ def get_pop_acc_pres_abs(data_path, out_path, acc_upper, acc_lower):
     # Switch rows to columns for ease
     roary_genefreq_matrix = roary_isol.transpose()
     roary_genefreq_matrix.index.name='Accession'
+
+    default_samples = list(roary_isol.columns)
+    # Make it so that if no needed_sample_names.txt file is given, it is created based on all isolate names found in the pangenome analysis
+    sample_needed_path = data_path+'/needed_sample_names.txt'
+
+    # Check if the file exists
+    if not os.path.isfile(sample_needed_path):
+        with open(sample_needed_path, 'w') as f:
+            for sample in default_samples:
+                f.write(sample + '\n')
+        print(f"No population sample list specified by user; CLARC used all isolates found in input data to generate the file: {sample_needed_path}")
+    else:
+        print(f"Population samples specified by user: {sample_needed_path}")
 
     # Get list of sample names in the subpopulation to analyse
     with open(sample_needed_path, 'r') as file:
@@ -129,7 +140,6 @@ def get_pop_acc_pres_abs(data_path, out_path, acc_upper, acc_lower):
                 record.description = ''
                 SeqIO.write(record, outfile, "fasta")
 
-
 ### Function to filter for core cogs
 
 def get_pop_core_pres_abs(data_path, out_path, core_lower):
@@ -137,6 +147,8 @@ def get_pop_core_pres_abs(data_path, out_path, core_lower):
     # Now we filter by frequency per each dataset (this can change depending on the datasets we want to include)
 
     pres_abs_path = data_path+"/gene_presence_absence.csv"
+
+    # Either the user-specified list, or the one created by CLARC
     sample_needed_path = data_path+'/needed_sample_names.txt'
 
     # Import Roary output

@@ -84,7 +84,7 @@ def main():
 
     ## Set paths to intermediate files to check if the step has been previously run
     filter_path = os.path.join(output_dir, "population_accessory_presence_absence.csv")
-    linkage_path = os.path.join(output_dir, "linkage", "acc_linkage_co-occur.csv")
+    linkage_path = os.path.join(output_dir, "linkage", "acc_p11_matrix.csv")
     eggnog_path = os.path.join(output_dir, "eggnog", "acc_cog_eggnog_annotations.csv")
     blast_path = os.path.join(output_dir, "acc_blastn", "blastn_acccogs_allvall.tsv")
 
