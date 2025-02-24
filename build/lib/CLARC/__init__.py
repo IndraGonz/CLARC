@@ -196,7 +196,7 @@ def main():
                     sys.exit(1)
 
         ## Perform CLARC cleaning of COGs
-        clarc_cleaning(input_dir, output_dir, panaroo_true, acc_upper, acc_lower, core_lower, ci, linkage_cut, connection_cut)
+        clarc_cleaning(input_dir, output_dir, panaroo_true, ppanggo_true, acc_upper, acc_lower, core_lower, ci, linkage_cut, connection_cut)
 
         print("CLARC finished re-defining COGs. Have fun with the results!")
 

@@ -31,10 +31,11 @@ import time
 #- Added a BLASTN e-value minimum for the connections (<1e-10)
 #- Added a user defined threshold where the linkage parameter can be varied. For example, instead of finding pairs that perfectly exclude each other, you can find pairs that co-occur <1% of the time.
 #- Added a user defined threshold to relax the graph connectivity threshold. Instead of selecting fully connected clusters, now the user can select clusters that are 90% connected for example. However, this might make it so that some COGs appear in multiple clusters. To address this, we identify any COGs that appear in multiple clusters, and only keep them in the most connected of the clusters.
+#- Added option to process PPanGGolin output
 
 # ## Identify CLARC clusters, condense them and generate output files
 
-def clarc_cleaning(in_path, out_path, panaroo_true, acc_upper, acc_lower, core_lower, clarc_identity, linkage_cut, connection_cut):
+def clarc_cleaning(in_path, out_path, panaroo_true, ppanggo_true, acc_upper, acc_lower, core_lower, clarc_identity, linkage_cut, connection_cut):
 
     # Import counts for COG pairs that co-occur
     linkage_p11_path = out_path+"/linkage/acc_p11_matrix.csv"
@@ -414,6 +415,20 @@ def clarc_cleaning(in_path, out_path, panaroo_true, acc_upper, acc_lower, core_l
 
             return condensed_row
 
+        def create_condensed_row_ppanggo(df, genes, new_gene_name):
+            rows_to_combine = df[df['Gene'].isin(genes)]
+
+            if rows_to_combine.empty:
+                return None
+
+            # Perform aggregation
+            condensed_row = {
+                'Gene': new_gene_name,
+                **{col: min(rows_to_combine[col].fillna(0).sum(), 1) for col in df.columns[1:]}
+            }
+
+            return condensed_row
+
         # Define function to loop through the legend of clusters and condense the rows of each cluster in the original pangenome output
 
         def process_clusters(df, legend):
@@ -447,19 +462,49 @@ def clarc_cleaning(in_path, out_path, panaroo_true, acc_upper, acc_lower, core_l
 
             return final_df
 
+        def process_clusters_ppanggo(df, legend):
+
+            legend_data = legend.to_dict(orient='records')
+            gene_set = set(df['Gene'])
+
+            condensed_rows = []
+            gene_to_condensed = {}
+
+            for row in legend_data:
+                values = list(row.values())
+                cogs_to_cluster = [x for x in values[:-1] if pd.notna(x)]
+                new_cluster_name = row['new_cluster_name_samecog']
+
+                # Skip if there are no COGs in the cluster (shouldn't happen but who knows)
+                if not cogs_to_cluster:
+                    continue
+
+                condensed_row = create_condensed_row_ppanggo(df, cogs_to_cluster, new_cluster_name)
+                if condensed_row:
+                    condensed_rows.append(condensed_row)
+
+                    for gene in cogs_to_cluster:
+                        gene_to_condensed[gene] = new_cluster_name
+
+
+            filtered_df = df[~df['Gene'].isin(gene_to_condensed.keys())]
+            cluster_new_rows = pd.DataFrame(condensed_rows)
+            final_df = pd.concat([filtered_df, cluster_new_rows], ignore_index=True)
+
+            return final_df
+
         # Now we want to drop the COGs in the clusters we just condensed and add the presence absence info of the newly defined clusters
 
         # Import original presence absence matrix results and filter them to generate cleaner presence absence matrix (but do NOT filter for core or accessory)
         # The filtering will depend on whether the input is from Roary or Panaroo
 
-        if panaroo_true == 0:
+        if panaroo_true == 0 and ppanggo_true == 0:
 
             pres_abs_path = in_path+'/gene_presence_absence.csv'
 
             # Import output pres abs
             roary_all_c = pd.read_csv(pres_abs_path, low_memory=False)
             roary_all_c['Gene'] = roary_all_c['Gene'].str.replace(r"[ ,\'\"]", '_', regex=True)
-
 
             # Get list of Roary output names in a list
             panroary_ids_list =  list(roary_all_c["Gene"])
@@ -529,6 +574,36 @@ def clarc_cleaning(in_path, out_path, panaroo_true, acc_upper, acc_lower, core_l
             # Export results
             panaroo_og_clarced_path = out_path+'/clarc_results/panaroo_clarc_gene_presence_absence.csv'
             panaroo_onefilt_condensed.to_csv(panaroo_og_clarced_path, index=False)
+
+        elif ppanggo_true == 1:
+
+            # Now we filter by frequency per each dataset (this can change depending on the datasets we want to include)
+            pres_abs_path = in_path+"/gene_presence_absence.Rtab"
+
+            # Import Ppanggo output
+            igopan_all_ppanggo = pd.read_csv(pres_abs_path, sep='\t', comment='#')
+
+            # Bakta often has spaces and special characters in its gene names, which can cause problems in the downstream analyses. So here we can turn them into underscores. I'm still deciding if this update is necessary. I think as long as the fasta files pick up the whole name, it should be fine.
+            # Update: this was absolutely necessary
+            igopan_all_ppanggo["Gene"] = igopan_all_ppanggo["Gene"].str.replace("[ ,\'\"]", "_", regex=True)
+
+            # Get list of PPanGGolin output names in a list
+            panppanggo_ids_list =  list(igopan_all_ppanggo["Gene"])
+
+            # Now make gene names the indeces
+            igopan_all_ppanggo.set_index('Gene', inplace=True)
+
+            # Switch rows to columns for ease
+            pres_abs_isol = igopan_all_ppanggo.transpose()
+            pres_abs_isol.index.name='Accession'
+
+            # Condense clusters on PPanGGolin output, using pre-defined functions
+            ppanggo_onefilt_condensed = igopan_all_ppanggo.copy().reset_index(drop=False)
+            ppanggo_onefilt_condensed = process_clusters_ppanggo(ppanggo_onefilt_condensed, conn_cluster_cogs_legend)
+
+            # Export results
+            ppanggo_og_clarced_path = out_path+'/clarc_results/ppanggolin_clarc_gene_presence_absence.csv'
+            ppanggo_onefilt_condensed.to_csv(ppanggo_og_clarced_path, index=False)
 
         # Add empty column to dataframe with cog pairs that exclude each other
         pres_abs_newclusters = pd.DataFrame()
