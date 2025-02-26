@@ -62,6 +62,19 @@ def get_pop_acc_pres_abs_panaroo(data_path, out_path, acc_upper, acc_lower):
     #panaroo_genefreq_matrix.columns = panaroo_genefreq_matrix.columns.str.replace('~~~', '-')
     panaroo_genefreq_matrix.index.name='Accession'
 
+    default_samples = list(panaroo_isol.columns)
+    # Make it so that if no needed_sample_names.txt file is given, it is created based on all isolate names found in the pangenome analysis
+    sample_needed_path = data_path+'/needed_sample_names.txt'
+
+    # Check if the file exists
+    if not os.path.isfile(sample_needed_path):
+        with open(sample_needed_path, 'w') as f:
+            for sample in default_samples:
+                f.write(sample + '\n')
+        print(f"No population sample list specified by user; CLARC used all isolates found in input data to generate the file: {sample_needed_path}")
+    else:
+        print(f"Population samples specified by user: {sample_needed_path}")
+
     # #Get list of sample names in the subpopulation to analyse
     with open(sample_needed_path, 'r') as file:
         acc_needed_list = file.read().splitlines()
