@@ -258,12 +258,6 @@ def clarc_cleaning(in_path, out_path, panaroo_true, ppanggo_true, acc_upper, acc
     new_cluster_list = [{'connected_COGs': sorted(v), 'group_length': len(v)} for k, v in unique_clusters.items()]
     samegene_connected_cogs = pd.DataFrame(new_cluster_list)
 
-    # Sort by largest group first
-    samegene_connected_cogs = samegene_connected_cogs.sort_values(by=['group_length'], ascending=False).reset_index(drop=True)
-
-    # Remove clusters with only one COG
-    samegene_connected_cogs = samegene_connected_cogs[samegene_connected_cogs['group_length'] > 1]
-
     if samegene_connected_cogs.empty:
 
             clarc_summary_path = out_path+"/clarc_results"
@@ -282,6 +276,12 @@ def clarc_cleaning(in_path, out_path, panaroo_true, ppanggo_true, acc_upper, acc
             sys.exit("No CLARC clusters found")
 
     else:
+
+        # Sort by largest group first
+        samegene_connected_cogs = samegene_connected_cogs.sort_values(by=['group_length'], ascending=False).reset_index(drop=True)
+
+        # Remove clusters with only one COG
+        samegene_connected_cogs = samegene_connected_cogs[samegene_connected_cogs['group_length'] > 1]
 
         def summarize_clusters(samegene_connected_cogs, cog_freq_df, max_clusters):
             # Create dataframe to summarize the clusters
