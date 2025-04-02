@@ -371,7 +371,13 @@ How quickly CLARC runs will be largely dependent on the number of accessory COGs
 
 We’ve created small pangenome analyses (8 genomes) for different bacterial species to give a sense for what the expected runtime should be. These test were run in a MacBook Pro laptop with 16GB of RAM using 8 cores.
 
-
+| Number of Genomes | Bacterial Species | Number of Accessory Genes | Pangenome Tool | CPUs | Runtime           |
+|-------------------|-------------------|----------------------------|----------------|------|-------------------|
+| 8                 | *M. tuberculosis* | 28                         | Roary, i95     | 8    | 0 mins and 40 secs|
+| 8                 | *L. monocytogenes*| 1,835                      | Roary, i95     | 8    | 13 mins and 14 secs |
+| 8                 | *S. agalactiae*   | 1,913                      | Roary, i95     | 8    | 15 mins and 3 secs  |
+| 8                 | *S. pneumoniae*   | 2,081                      | Roary, i95     | 8    | 16 mins and 37 secs |
+| 8                 | *E. coli*         | 4,715                      | Roary, i95     | 8    | 32 mins and 23 secs |
 
 ## Raising issues
 
