@@ -98,45 +98,57 @@ CLARC's default is to take the results of a [Roary](https://github.com/sanger-pa
 
 From Roary, CLARC uses two output files: The ```gene_presence_absence.csv``` file which contains a presence absence matrix with all the COGs identified by Roary and ```pan_genome_reference.fa``` which is a fasta file containing the representative sequences of these genes. The representative sequence is the longest instance of that COG across all samples where that COG was called. The .csv file contains ALL COGs called by Roary and not only core/accessory. Do not rename these files, as CLARC will look for them by name.
 
-Additionally, CLARC needs a text file with the names of the samples in your population of interest. This file should be named ```needed_sample_names.txt```. The 'accessory gene' definitions and the linkage constraints will be calculated based on this population of samples. 
+Additionally, if you want to focus the analysis on a specific subpopulation (e.g., samples in a particular geographic location), you can specify a text file with the names of the samples in your population of interest. This file should be named ```needed_sample_names.txt```. If this file is present in your data folder, the 'accessory gene' definitions and the linkage constraints will be calculated based on this population of samples. Otherwise, CLARC will use all samples used to build the input pangenome.
 
-For example, if you ran the pangenome analysis using samples from various geographic locations/datasets, you can feed CLARC only the samples in a particular geographic location you are interested in.
-
-Nonetheless, if you did not use samples from multiple distinct populations in your original pangenome analysis, you can just include the names of all the samples used to build the pangenome in the ```needed_sample_names.txt``` input file. 
-
-Make sure these 3 input files are in the same folder, since you will specify the input folder path when running CLARC.
+Make sure that all input files are in the same folder, since you will specify the input folder path when running CLARC. You can optionally specify the output directory where you want results to be saved with the ```--output_dir``` flag.
 
 #### Command
 
 Now the clarc command can be run from the terminal (within the clarc_env environment):
 
 ```bash
-clarc --input_dir {path to folder with input data} --output_dir {path to folder where the clarc results will be stored}
+clarc --input_dir {path to folder with input data}
 ```
 
 ### Inputs for Panaroo
 
 Because of the way in which Panaroo saves the representative sequences of each COG, the inputs will be slightly different. CLARC will need 3 files that are outputs from Panaroo: (1) The ```gene_presence_absence_roary.csv``` file that contains the presence absence matrix with all the COGs identified by Panaroo, in the Roary output format (2) The ```pan_genome_reference.fa``` file containing most COG representative sequences and (3) The ```gene_data.csv``` file that contains more detailed sequence information for all COGs called by Panaroo. This third output is necessary because Panaroo does not include all COG sequences in the ```pan_genome_reference.fa``` , and so an internal CLARC script uses the detailed information to generate a fasta file with all sequences.
 
-As previously described with Roary, CLARC will need a text file with the names of the samples in your population of interest. This file should be named ```needed_sample_names.txt```. The 'accessory gene' definitions and the linkage constraints will be calculated based on this population of samples. 
+As previously described with Roary, CLARC can accept a text file with the names of the samples in your population of interest. This file should be named ```needed_sample_names.txt```. The 'accessory gene' definitions and the linkage constraints will be calculated based on this population of samples. 
 
-Make sure these 4 input files are in the same folder, since you will specify the input folder path when running CLARC.
+Make sure the input files are in the same folder, since you will specify the input folder path when running CLARC.
 
 Now the clarc command can be run from the terminal, specifying the panaroo flag (within the clarc_env environment):
 
 ```bash
-clarc --input_dir {path to folder with input data} --output_dir {path to folder where the clarc results will be stored} --panaroo
+clarc --input_dir {path to folder with input data} --panaroo
 ```
 
 ### Inputs for PPanGGOLiN
 
+Running CLARC on PPanGGOLiN results is similar to Roary, it uses two input files: ```gene_presence_absence.Rtab``` which contains the presence absence matrix with all the COGs identified by PPanGGOLiN and ```all_nucleotide_families.fasta``` which contains the representative sequences of these genes. 
 
+*Note*: Running PPanGGOLiN on default parameters will not automatically output the ```all_nucleotide_families.fasta``` file. To get this file you must run the command ```ppanggolin fasta -p pangenome.h5 --gene_families all -o ./ref_fasta``` from the folder containing your PPanGGOLiN results. 
+
+As previously described, CLARC can accept a text file named ```needed_sample_names.txt``` with the names of the samples in your population of interest. 
+
+Make sure all input files are in the same folder, since you will specify the input folder path when running CLARC.
+
+Now the clarc command can be run from the terminal, specifying the PPanGGOLiN flag (within the clarc_env environment):
+
+```bash
+clarc --input_dir {path to folder with input data} --ppanggo
+```
 
 ### Test data
 
-Instructions of how to run CLARC on a given set of input files can be found in the [pangenome analysis](https://github.com/IndraGonz/nfds-tutorial?tab=readme-ov-file#pangenome-analysis) section of this broader tutorial. Specifically, the CLARC exercise is in the *Running CLARC* subsection. 
+An example of an input folder (with all its contents) can be found within this repository within the [example_data](https://github.com/IndraGonz/CLARC/tree/main/example_data) folder. These files are from a pangenome analyses created with 8 _Streptococcus pneumoniae_ genomes using Roary on default parameters. 
 
-In this example, CLARC uses Roary results from a multi-population pangenome built with >8000 S. pneumoniae samples collected across 7 different locations. It specifically refines the COG definitions for one of the datasets, which was collected in the Southwest of the United States.
+You can download this folder and use it as an input to test your CLARC installation with this command (from the clarc_env environment):
+
+```bash
+clarc --input_dir ~/example_data
+```
 
 ## Pipeline workflow description
 
@@ -144,11 +156,11 @@ CLARC uses a custom clustering algorithm to identify and reduce redundancy in CO
 
 After this step, the algorithm builds a graph where each node represents a COG, and two nodes are connected by an edge if the constraints were met for that COG pair in the previous step. All three of the constraints must be met for two COGs to be connected by an edge in this graph. The algorithm then looks for fully connected clusters of 2 or more COGs that appear to be the same unit. By fully connected, we mean clusters where all COGs have connections to all other COGs in the cluster. This ensures that all fully connected clusters are mutually exclusive, and helps prevent false positives for low frequency COGs. COGs that are not in fully connected clusters within the graph are not modified further. Finally, the pipeline redefines the COGs by summing the presence absence matrix for all COGs within previously identified ‘same unit’ clusters. 
 
-<img src="https://github.com/IndraGonz/CLARC/blob/main/CLARC.egg-info/github_workflow_1.png" alt="CLARC algorithm workflow" width="900">
+<img src="https://github.com/IndraGonz/CLARC/blob/main/CLARC.egg-info/GitHub_CLARC_algorithm.png" alt="CLARC algorithm workflow" width="900">
 
 This clustering algorithm is implemented in the CLARC bioinformatic tool. When using the tool, the user inputs a csv file with the COG-presence-absence matrix previously generated by a pangenome tool, along with the fasta file containing the COG representative sequences for that pangenome analysis (which is also an output from current pangenome tools). The current version of CLARC (v.1.1.2) supports raw inputs from Roary and Panaroo. However, the results from any pangenome analysis can be run with CLARC, as long as the inputs are formatted like the results from Roary or Panaroo. In addition to these two files, CLARC requires the user to provide a text file with a sample ID list for the genomes that compose the population of interest. This specified population can simply be all samples used to build the pangenome analysis, or a subset of samples if a distinct population within the whole set is known (e.g. samples collected in a specific geographic location).
 
-<img src="https://github.com/IndraGonz/CLARC/blob/main/CLARC.egg-info/github_workflow_2.png" alt="CLARC tool workflow" width="900">
+<img src="https://github.com/IndraGonz/CLARC/blob/main/CLARC.egg-info/GitHub_CLARC_workflow.png" alt="CLARC tool workflow" width="900">
 
 ### Creating necessary inputs
 
