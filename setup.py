@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='CLARC',
-    version='1.1.9',
+    version='1.2.0',
     packages=find_packages(),
     scripts=['scripts/acccog_blastn.sh'],
     entry_points={

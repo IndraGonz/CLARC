@@ -105,7 +105,7 @@ def get_pop_acc_pres_abs(data_path, out_path, acc_upper, acc_lower):
     freq_cog_navajo['freq'] = pd.to_numeric(freq_cog_navajo['freq'], errors='coerce')
 
     # Now filter to only keep cogs with frequency between 5 and 95% within the given sample subset
-    acc_cog_navajo = freq_cog_navajo[(freq_cog_navajo['freq'] >= acc_lower) & (freq_cog_navajo['freq'] <= acc_upper)]
+    acc_cog_navajo = freq_cog_navajo[(freq_cog_navajo['freq'] > acc_lower) & (freq_cog_navajo['freq'] < acc_upper)]
 
     # Get the number of accessory cogs per dataset
     acccog_num_navajo = acc_cog_navajo.shape[0]
@@ -217,7 +217,7 @@ def get_pop_core_pres_abs(data_path, out_path, core_lower):
     freq_cog_navajo['freq'] = pd.to_numeric(freq_cog_navajo['freq'], errors='coerce')
 
     # Now filter to only keep cogs with frequency over a given frequency (default 95%) within the given sample subset
-    core_cog_navajo = freq_cog_navajo[(freq_cog_navajo['freq'] > core_lower)]
+    core_cog_navajo = freq_cog_navajo[(freq_cog_navajo['freq'] >= core_lower)]
 
     # Get the number of core cogs per dataset
     corecog_num_navajo = core_cog_navajo.shape[0]
