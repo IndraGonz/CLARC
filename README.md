@@ -12,7 +12,9 @@ A tool that uses sequence identity, linkage patterns and functional annotations 
 1. [Introduction](#introduction)
 2. [Installation](#installation)
 3. [Quickstart](#quickstart)
-   - [Basic usage](#basic-usage)
+   - [Basic usage (Roary)](#basic-usage-roary)
+   - [Inputs for Panaroo](#inputs-for-panaroo)
+   - [Inputs for PPanGGOLiN](#inputs-for-ppanggolin)
    - [Test data](#test-data)
 4. [Pipeline workflow description](#pipeline-workflow-description)
 5. [Full usage](#full-usage)
@@ -26,7 +28,7 @@ Current tools that infer bacterial pangenomes generally cluster annotated coding
 
 In its first step, CLARC identifies ‘same gene’ pairs by looking for genes that never co-occur in the same isolate and also share sequence identity and functional annotation. After this step, CLARC builds a graph where fully connected clusters represent gene variants that were erroneously split into different COGs. Finally, genes in these clusters are condensed to generate a refined gene presence absence matrix for the population. For a more detailed breakdown of the technical workflow see the [Pipeline workflow description](#pipeline-workflow-description) section in this repository.
 
-In summary, CLARC is meant to compliment existing bacterial pangenome tools by polishing their COG definitions. As input, the pipeline currently takes the presence absence matrix generated with [Roary](https://sanger-pathogens.github.io/Roary/) (but can also accept input from [Panaroo](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-02090-4)). We believe CLARC is particularly helpful for researchers that plan to perform downstream analyses that rely on COG frequencies, such as studying the evolutionary dynamics of accessory genes or running a panGWAS. 
+In summary, CLARC is meant to compliment existing bacterial pangenome tools by polishing their COG definitions. As input, the pipeline currently takes the presence absence matrix generated with [Roary](https://sanger-pathogens.github.io/Roary/) (but can also accept inputs from [Panaroo](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-02090-4) and [PPanGGOLiN](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1007732)). We believe CLARC is particularly helpful for researchers that plan to perform downstream analyses that rely on COG frequencies, such as studying the evolutionary dynamics of accessory genes or running a panGWAS. 
 
 ## Installation
 
@@ -88,11 +90,11 @@ If the version appears, then the installation was successful!
 
 ## Quickstart
 
-### Basic usage
+### Basic usage (Roary)
 
 #### Description of inputs
 
-CLARC's default is to take the results of a [Roary](https://github.com/sanger-pathogens/Roary) pangenome analysis as input. However, it can also accept results from the [Panaroo](https://github.com/gtonkinhill/panaroo) pipeline if the ```--panaroo``` flag is specified. More information on the panaroo usage in the [Inputs for Panaroo](#inputs-for-panaroo) subsection of this documentation.
+CLARC's default is to take the results of a [Roary](https://github.com/sanger-pathogens/Roary) pangenome analysis as input. However, it can also accept results from [Panaroo](https://github.com/gtonkinhill/panaroo) if the ```--panaroo``` flag is specified or from [PPanGGOLiN](https://ppanggolin.readthedocs.io/en/latest/) with the ```--ppanggo``` flag. More information on the Panaroo/PPanGGOLiN usage can be found in the [Inputs for Panaroo](#inputs-for-panaroo)/[Inputs for PPanGGOLiN](#inputs-for-ppanggolin) subsections of this documentation.
 
 From Roary, CLARC uses two output files: The ```gene_presence_absence.csv``` file which contains a presence absence matrix with all the COGs identified by Roary and ```pan_genome_reference.fa``` which is a fasta file containing the representative sequences of these genes. The representative sequence is the longest instance of that COG across all samples where that COG was called. The .csv file contains ALL COGs called by Roary and not only core/accessory. Do not rename these files, as CLARC will look for them by name.
 
@@ -125,6 +127,10 @@ Now the clarc command can be run from the terminal, specifying the panaroo flag 
 ```bash
 clarc --input_dir {path to folder with input data} --output_dir {path to folder where the clarc results will be stored} --panaroo
 ```
+
+### Inputs for PPanGGOLiN
+
+
 
 ### Test data
 
