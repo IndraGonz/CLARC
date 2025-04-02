@@ -19,8 +19,9 @@ A tool that uses sequence identity, linkage patterns and functional annotations 
 4. [Pipeline workflow description](#pipeline-workflow-description)
 5. [Full usage](#full-usage)
 6. [Outputs](#outputs)
-7. [Raising issues](#raising-issues)
-8. [Citing](#citing)
+7. [Expected runtime](#expected-runtime)
+8. [Raising issues](#raising-issues)
+9. [Citing](#citing)
 
 ## Introduction
 
@@ -363,6 +364,14 @@ Various files are created here, since a BLAST database is built from the accesso
      csv containing a summary of the COGs found in each category. The column headers are the categories, and each column has the list of COGs identified in that category. 
 
 These functional annotation files (and all other intermediate files) are created for the accessory genes filtered from the original pangenome analysis results. However, one of the conditions that CLARC uses to create the same gene clusters is that the members of the cluster must have the same functional group. So, using these annotations the user can also obtain the functional annotated for the new CLARC accessory gene definitions.
+
+## Expected runtime
+
+How quickly CLARC runs will be largely dependent on the number of accessory COGs to consider, so species with larger accessory genomes will likely take longer. Additionally, the speed of the functional annotation step depends on the response time of the EggNOG website, which is typically fast (<1 second per entry) but can occasionally be slower. This is the current bottleneck for our pipeline. The current version of CLARC (1.2.0) typically completes analyses in <1 hour.
+
+We’ve created small pangenome analyses (8 genomes) for different bacterial species to give a sense for what the expected runtime should be. These test were run in a MacBook Pro laptop with 16GB of RAM using 8 cores.
+
+
 
 ## Raising issues
 
