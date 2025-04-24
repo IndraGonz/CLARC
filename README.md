@@ -369,7 +369,7 @@ These functional annotation files (and all other intermediate files) are created
 
 How quickly CLARC runs will be largely dependent on the number of accessory COGs to consider, so species with larger accessory genomes will likely take longer. Additionally, the speed of the functional annotation step depends on the response time of the EggNOG website, which is typically fast (<1 second per entry) but can occasionally be slower. This is the current bottleneck for our pipeline. The current version of CLARC (1.2.0) typically completes analyses in <1 hour.
 
-We’ve created small pangenome analyses (8 genomes) for different bacterial species to give a sense for what the expected runtime should be. These test were run in a MacBook Pro laptop with 16GB of RAM using 8 cores.
+We’ve created small pangenome analyses (8 genomes) for different bacterial species to give a sense for what the expected runtime should be. These tests were run in a MacBook Pro laptop with 16GB of RAM using 8 cores.
 
 | Number of Genomes | Bacterial Species | Number of Accessory Genes | Pangenome Tool | CPUs | Runtime           |
 |-------------------|-------------------|----------------------------|----------------|------|-------------------|
