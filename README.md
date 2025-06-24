@@ -385,6 +385,4 @@ If you have trouble with any of the steps shown here, please let me know! You ca
 
 ## Citing
 
- Linkage-based ortholog refinement in bacterial pangenomes with CLARC
-Indra Gonzalez Ojeda, Samantha G Palace, Pamela P Martinez, Taj Azarian, Lindsay R Grant, Laura Hammitt, Bill Hanage, Marc Lipsitch
-bioRxiv 2024.12.18.629228; doi: https://doi.org/10.1101/2024.12.18.629228 
+Indra González Ojeda, Samantha G Palace, Pamela P Martinez, Taj Azarian, Lindsay R Grant, Laura L Hammitt, William P Hanage, Marc Lipsitch, Linkage-based ortholog refinement in bacterial pangenomes with CLARC, Nucleic Acids Research, Volume 53, Issue 12, 8 July 2025, gkaf488, https://doi.org/10.1093/nar/gkaf488
