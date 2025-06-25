@@ -385,4 +385,4 @@ If you have trouble with any of the steps shown here, please let me know! You ca
 
 ## Citing
 
-Indra González Ojeda, Samantha G Palace, Pamela P Martinez, Taj Azarian, Lindsay R Grant, Laura L Hammitt, William P Hanage, Marc Lipsitch, Linkage-based ortholog refinement in bacterial pangenomes with CLARC, Nucleic Acids Research, Volume 53, Issue 12, 8 July 2025, gkaf488, https://doi.org/10.1093/nar/gkaf488
+Indra González Ojeda, Samantha G Palace, Pamela P Martinez, Taj Azarian, Lindsay R Grant, Laura L Hammitt, William P Hanage, Marc Lipsitch, Linkage-based ortholog refinement in bacterial pangenomes with CLARC, Nucleic Acids Research, Volume 53, Issue 12, 8 July 2025, gkaf488, [https://doi.org/10.1093/nar/gkaf488](https://academic.oup.com/nar/article/53/12/gkaf488/8169778)
