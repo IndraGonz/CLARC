@@ -144,7 +144,7 @@ clarc --input_dir {path to folder with input data} --ppanggo
 
 ### Inputs for RIBAP
 
-Starting from v1.2.2 you can run CLARC downstream of [RIBAP](https://doi.org/10.1186/s13059-024-03312-9). Running CLARC on RIBAP results requires the user to provide the folder containing the _full_ set of RIBAP results. Specifically, CLARC will search for the ```02-roary``` and ```05-combine``` subfolders. From there CLARC will use the ```holy_python_ribap_95.csv``` as the presence absence matrix and the ```pan_genome_reference.fa``` file from the Roary i95 analysis (conducted by RIBAP) to create a RIBAP equivalent of this fasta file. 
+Starting from v1.2.2 you can run CLARC downstream of [RIBAP](https://doi.org/10.1186/s13059-024-03312-9). Running CLARC on RIBAP results requires the user to provide the folder containing the _full_ set of RIBAP results. Specifically, CLARC will search for the ```02-roary``` and ```05-combine``` subfolders. From there CLARC will use the ```holy_python_ribap_95.csv``` as the presence absence matrix and the ```pan_genome_reference.fa``` file from the Roary i95 analysis conducted by RIBAP to create a RIBAP equivalent of this fasta file. 
 
 As previously described with Roary, CLARC can accept a text file with the names of the samples in your population of interest. This file should be named ```needed_sample_names.txt```. The 'accessory gene' definitions and the linkage constraints will be calculated based on this population of samples. If you are using this option, you should put this text file in the folder that contains the RIBAP results.
 
