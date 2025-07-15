@@ -10,6 +10,7 @@ import shutil
 from .filtering_acc_core import get_pop_acc_pres_abs, get_pop_core_pres_abs
 from .filtering_acc_core_panaroo import get_pop_acc_pres_abs_panaroo, get_pop_core_pres_abs_panaroo
 from .filtering_acc_core_ppanggo import get_pop_acc_pres_abs_ppanggo, get_pop_core_pres_abs_ppanggo
+from .filtering_acc_core_ribap import get_pop_acc_pres_abs_ribap, get_pop_core_pres_abs_ribap
 from .get_linkage_matrix import get_linkage_matrices
 from .eggnog_annotations import get_functional_groups
 from .clarc_condense import clarc_cleaning
@@ -33,6 +34,7 @@ def main():
     parser.add_argument("--filter-only", action='store_true', help="If given, only run the filtering steps")
     parser.add_argument("--panaroo", action='store_true', help="If given, the input data will be from Panaroo and it will filter accordingly. Remember to provide the 'gene_data.csv' input")
     parser.add_argument("--ppanggo", action='store_true', help="If given, the input data will be from PPanGGolin and it will filter accordingly. Remember to provide the appropiate inputs")
+    parser.add_argument("--ribap", action='store_true', help="If given, the input data will be from RIBAP and it will filter accordingly. Remember to provide the appropiate inputs")
     parser.add_argument("--options", action='store_true', help="Show available options")
     parser.add_argument("--version", action='store_true', help="Show the version of the CLARC tool")
     parser.add_argument("--max_cores", type=int, default=os.cpu_count(), help="Maximum number of CPU cores to use for parallel tasks. Default is all available cores")
@@ -65,6 +67,7 @@ def main():
     filter_only = args.filter_only
     panaroo = args.panaroo
     ppanggo = args.ppanggo
+    ribap = args.ribap
     merge = args.merge
     ci = args.ci
     linkage_cut = args.linkage_cut
@@ -88,7 +91,6 @@ def main():
     eggnog_path = os.path.join(output_dir, "eggnog", "acc_cog_eggnog_annotations.csv")
     blast_path = os.path.join(output_dir, "acc_blastn", "blastn_acccogs_allvall.tsv")
 
-
     if args.panaroo:
         panaroo_true = 1
     else:
@@ -98,6 +100,11 @@ def main():
         ppanggo_true = 1
     else:
         ppanggo_true = 0
+
+    if args.ribap:
+        ribap_true = 1
+    else:
+        ribap_true = 0
 
     if merge:
 
@@ -121,6 +128,11 @@ def main():
 
                     get_pop_acc_pres_abs_ppanggo(input_dir, output_dir, acc_upper, acc_lower)
                     get_pop_core_pres_abs_ppanggo(input_dir, output_dir, core_lower)
+
+                elif ribap_true == 1:
+
+                    get_pop_acc_pres_abs_ribap(input_dir, output_dir, acc_upper, acc_lower)
+                    get_pop_core_pres_abs_ribap(input_dir, output_dir, core_lower)
 
                 else:
 
@@ -196,7 +208,7 @@ def main():
                     sys.exit(1)
 
         ## Perform CLARC cleaning of COGs
-        clarc_cleaning(input_dir, output_dir, panaroo_true, ppanggo_true, acc_upper, acc_lower, core_lower, ci, linkage_cut, connection_cut)
+        clarc_cleaning(input_dir, output_dir, panaroo_true, ppanggo_true, ribap_true, acc_upper, acc_lower, core_lower, ci, linkage_cut, connection_cut)
 
         print("CLARC finished re-defining COGs. Have fun with the results!")
 

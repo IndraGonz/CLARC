@@ -110,7 +110,7 @@ def get_pop_acc_pres_abs_panaroo(data_path, out_path, acc_upper, acc_lower):
     freq_cog = get_freq(genefreq_mat_filt)
 
     # Now filter to only keep cogs with frequency in a given range within the given sample subset
-    acc_cog = freq_cog.loc[(freq_cog['freq'] >= acc_lower) & (freq_cog['freq'] <= acc_upper)]
+    acc_cog = freq_cog.loc[(freq_cog['freq'] > acc_lower) & (freq_cog['freq'] < acc_upper)]
 
     # Get the number of accessory cogs per dataset
     acccog_num = acc_cog.shape[0]
@@ -370,7 +370,7 @@ def get_pop_core_pres_abs_panaroo(data_path, out_path, core_lower):
     freq_cog = get_freq(genefreq_mat_filt)
 
     # Now filter to only keep cogs with frequency over a given value within the given sample subset
-    core_cog = freq_cog.loc[(freq_cog['freq'] > core_lower)]
+    core_cog = freq_cog.loc[(freq_cog['freq'] >= core_lower)]
 
     # Get the number of core cogs per dataset
     corecog_num = core_cog.shape[0]
