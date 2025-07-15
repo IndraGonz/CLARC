@@ -8,9 +8,12 @@ CLARC/eggnog_annotations.py
 CLARC/filtering_acc_core.py
 CLARC/filtering_acc_core_panaroo.py
 CLARC/filtering_acc_core_ppanggo.py
+CLARC/filtering_acc_core_ribap.py
 CLARC/get_linkage_matrix.py
 CLARC/version.py
 CLARC.egg-info/CLARC_logo.svg
+CLARC.egg-info/GitHub_CLARC_algorithm.png
+CLARC.egg-info/GitHub_CLARC_workflow.png
 CLARC.egg-info/PKG-INFO
 CLARC.egg-info/SOURCES.txt
 CLARC.egg-info/dependency_links.txt

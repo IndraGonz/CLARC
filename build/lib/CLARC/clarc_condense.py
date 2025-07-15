@@ -33,9 +33,12 @@ import time
 #- Added a user defined threshold to relax the graph connectivity threshold. Instead of selecting fully connected clusters, now the user can select clusters that are 90% connected for example. However, this might make it so that some COGs appear in multiple clusters. To address this, we identify any COGs that appear in multiple clusters, and only keep them in the most connected of the clusters.
 #- Added option to process PPanGGolin output
 
+# CLARC 1.2.1 revision
+# - Added RIBAP option
+
 # ## Identify CLARC clusters, condense them and generate output files
 
-def clarc_cleaning(in_path, out_path, panaroo_true, ppanggo_true, acc_upper, acc_lower, core_lower, clarc_identity, linkage_cut, connection_cut):
+def clarc_cleaning(in_path, out_path, panaroo_true, ppanggo_true, ribap_true, acc_upper, acc_lower, core_lower, clarc_identity, linkage_cut, connection_cut):
 
     # Import counts for COG pairs that co-occur
     linkage_p11_path = out_path+"/linkage/acc_p11_matrix.csv"
@@ -327,11 +330,11 @@ def clarc_cleaning(in_path, out_path, panaroo_true, ppanggo_true, acc_upper, acc
 
         # Now get clusters that seem to be core genes and clusters that seem to be accessory genes
 
-        # They are core if their joint frequency is >= 0.95
-        conn_cluster_cogs_core = samegene_connected_cogs_exp[samegene_connected_cogs_exp['freq_sum'] >= 0.95]
+        # They are core if their joint frequency is >= core_lower
+        conn_cluster_cogs_core = samegene_connected_cogs_exp[samegene_connected_cogs_exp['freq_sum'] >= core_lower]
 
-        # They are accessory is their joint frequency is < 0.95
-        conn_cluster_cogs_acc = samegene_connected_cogs_exp[samegene_connected_cogs_exp['freq_sum'] < 0.95]
+        # They are accessory is their joint frequency is < acc_upper
+        conn_cluster_cogs_acc = samegene_connected_cogs_exp[samegene_connected_cogs_exp['freq_sum'] < acc_upper]
 
         cog_columns = [f"COG{i}" for i in range(1, max_clusters + 1)]
 
@@ -429,6 +432,30 @@ def clarc_cleaning(in_path, out_path, panaroo_true, ppanggo_true, acc_upper, acc
 
             return condensed_row
 
+        def create_condensed_row_ribap(df, cluster_ids, new_cluster_id):
+            rows_to_combine = df[df['Cluster_ID'].isin(cluster_ids)]
+
+            if rows_to_combine.empty:
+                return None
+
+            def join_unique(values):
+                """Helper to join unique non-empty strings without trailing commas."""
+                values = [v for v in values if v]
+                return values[0] if len(values) == 1 else ', '.join(values)
+
+            condensed_row = {
+                'Cluster_ID': new_cluster_id,
+                'Annotation': join_unique(rows_to_combine['Annotation'].dropna().astype(str).unique()),
+                'Gene_Name': join_unique(rows_to_combine['Gene_Name'].dropna().astype(str).unique())
+            }
+
+            for col in df.columns[3:]:
+                values = rows_to_combine[col].dropna().astype(str).unique()
+                values = [v for v in values if v != 'NA']  # Filter out 'NA' strings if present
+                condensed_row[col] = values[0] if len(values) == 1 else ','.join(values)
+
+            return condensed_row
+
         # Define function to loop through the legend of clusters and condense the rows of each cluster in the original pangenome output
 
         def process_clusters(df, legend):
@@ -493,12 +520,40 @@ def clarc_cleaning(in_path, out_path, panaroo_true, ppanggo_true, acc_upper, acc
 
             return final_df
 
+        def process_clusters_ribap(df, legend):
+
+            legend_data = legend.to_dict(orient='records')
+            cluster_ids = set(df['Cluster_ID'])
+
+            condensed_rows = []
+            cluster_to_condensed = {}
+
+            for row in legend_data:
+                values = list(row.values())
+                clusters_to_merge = [x for x in values[:-1] if pd.notna(x) and x in cluster_ids]
+                new_cluster_name = row['new_cluster_name_samecog']
+
+                if not clusters_to_merge:
+                    continue
+
+                condensed_row = create_condensed_row_ribap(df, clusters_to_merge, new_cluster_name)
+                if condensed_row:
+                    condensed_rows.append(condensed_row)
+                    for cluster_id in clusters_to_merge:
+                        cluster_to_condensed[cluster_id] = new_cluster_name
+
+            filtered_df = df[~df['Cluster_ID'].isin(cluster_to_condensed.keys())]
+            cluster_new_rows = pd.DataFrame(condensed_rows)
+            final_df = pd.concat([filtered_df, cluster_new_rows], ignore_index=True)
+
+            return final_df
+
         # Now we want to drop the COGs in the clusters we just condensed and add the presence absence info of the newly defined clusters
 
         # Import original presence absence matrix results and filter them to generate cleaner presence absence matrix (but do NOT filter for core or accessory)
         # The filtering will depend on whether the input is from Roary or Panaroo
 
-        if panaroo_true == 0 and ppanggo_true == 0:
+        if panaroo_true == 0 and ppanggo_true == 0 and ribap_true == 0:
 
             pres_abs_path = in_path+'/gene_presence_absence.csv'
 
@@ -543,7 +598,6 @@ def clarc_cleaning(in_path, out_path, panaroo_true, ppanggo_true, acc_upper, acc
             # Import and filter panaroo results
             panaroo_all_c = pd.read_csv(pres_abs_path, low_memory=False)
             panaroo_all_c['Gene'] = panaroo_all_c['Gene'].str.replace(r"[ ,\'\"]", '_', regex=True)
-
 
             # Get list of Roary output names in a list
             panaroo_ids_list =  list(panaroo_all_c["Gene"])
@@ -604,6 +658,26 @@ def clarc_cleaning(in_path, out_path, panaroo_true, ppanggo_true, acc_upper, acc
             # Export results
             ppanggo_og_clarced_path = out_path+'/clarc_results/ppanggolin_clarc_gene_presence_absence.csv'
             ppanggo_onefilt_condensed.to_csv(ppanggo_og_clarced_path, index=False)
+
+        elif ribap_true == 1:
+
+            pres_abs_path = ribap_data_path + "/05-combine/holy_python_ribap_95.csv"
+            ribap_all = pd.read_csv(pres_abs_path, sep="\t")
+            ribap_all["Cluster_ID"] = ribap_all["Cluster_ID"].astype(str).str.replace(r"[ ,\'\"]", "_", regex=True)
+            panribap_ids_list = list(ribap_all["Cluster_ID"])
+
+            ribap_all.set_index("Cluster_ID", inplace=True)
+
+            ribap_isol = ribap_all.iloc[:, 2:]
+            ribap_isol = ribap_isol.notnull().astype(int)
+            pres_abs_isol = ribap_isol.transpose()
+            pres_abs_isol.index.name = 'Accession'
+
+            ribap_onefilt_condensed = ribap_all.copy().reset_index(drop=False)
+            ribap_onefilt_condensed = process_clusters_ribap(ribap_onefilt_condensed, conn_cluster_cogs_legend)
+
+            ribap_clarced_path = out_path + "/clarc_results/ribap_clarc_gene_presence_absence.csv"
+            ribap_onefilt_condensed.to_csv(ribap_clarced_path, index=False)
 
         # Add empty column to dataframe with cog pairs that exclude each other
         pres_abs_newclusters = pd.DataFrame()

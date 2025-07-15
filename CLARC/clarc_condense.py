@@ -661,7 +661,7 @@ def clarc_cleaning(in_path, out_path, panaroo_true, ppanggo_true, ribap_true, ac
 
         elif ribap_true == 1:
 
-            pres_abs_path = ribap_data_path + "/05-combine/holy_python_ribap_95.csv"
+            pres_abs_path = in_path + "/05-combine/holy_python_ribap_95.csv"
             ribap_all = pd.read_csv(pres_abs_path, sep="\t")
             ribap_all["Cluster_ID"] = ribap_all["Cluster_ID"].astype(str).str.replace(r"[ ,\'\"]", "_", regex=True)
             panribap_ids_list = list(ribap_all["Cluster_ID"])
