@@ -126,7 +126,7 @@ Now the clarc command can be run from the terminal, specifying the panaroo flag 
 clarc --input_dir {path to folder with input data} --panaroo
 ```
 
-*Note*: When running CLARC on Panaroo outputs, the degree of refinement is often limited. This is because Panaroo tends to cluster genes conservatively (sometimes over-clustering), which leaves little additional structure for CLARC to resolve. For some applications, we find that building a pangenome with Roary+CLARC or PPanGGOLiN+CLARC performs better than using Panaroo alone. So if CLARC finds few or no clusters on your Panaroo results, consider running one of these alternative pangenome tools. See the [CLARC paper](https://academic.oup.com/nar/article/53/12/gkaf488/8169778) (Figures 6–7) for more information.
+*Note*: When running CLARC on Panaroo outputs, the degree of refinement is often limited. This is because Panaroo tends to cluster genes conservatively (often over-clustering), which leaves little additional structure for CLARC to resolve. For some applications, we find that building a pangenome with Roary+CLARC or PPanGGOLiN+CLARC performs better than using Panaroo alone. So if CLARC finds few or no clusters on your Panaroo results, consider also running one of these alternative pangenome tools. See the [CLARC paper](https://academic.oup.com/nar/article/53/12/gkaf488/8169778) (Figures 6–7) for more information.
 
 ### Inputs for PPanGGOLiN
 
