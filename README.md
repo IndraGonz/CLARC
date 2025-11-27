@@ -15,6 +15,7 @@ A tool that uses sequence identity, linkage patterns and functional annotations 
    - [Basic usage (Roary)](#basic-usage-roary)
    - [Inputs for Panaroo](#inputs-for-panaroo)
    - [Inputs for PPanGGOLiN](#inputs-for-ppanggolin)
+   - [Inputs for RIBAP](#inputs-for-ribap)
    - [Test data](#test-data)
 4. [Pipeline workflow description](#pipeline-workflow-description)
 5. [Full usage](#full-usage)
@@ -29,7 +30,7 @@ Current tools that infer bacterial pangenomes generally cluster annotated coding
 
 In its first step, CLARC identifies ‘same gene’ pairs by looking for genes that never co-occur in the same isolate and also share sequence identity and functional annotation. After this step, CLARC builds a graph where fully connected clusters represent gene variants that were erroneously split into different COGs. Finally, genes in these clusters are condensed to generate a refined gene presence absence matrix for the population. For a more detailed breakdown of the technical workflow see the [Pipeline workflow description](#pipeline-workflow-description) section in this repository.
 
-In summary, CLARC is meant to compliment existing bacterial pangenome tools by polishing their COG definitions. As input, the pipeline currently takes the presence absence matrix generated with [Roary](https://sanger-pathogens.github.io/Roary/) (but can also accept inputs from [Panaroo](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-02090-4) and [PPanGGOLiN](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1007732)). We believe CLARC is particularly helpful for researchers that plan to perform downstream analyses that rely on COG frequencies, such as studying the evolutionary dynamics of accessory genes or running a panGWAS. 
+In summary, CLARC is meant to compliment existing bacterial pangenome tools by polishing their COG definitions. As input, the pipeline currently takes the presence absence matrix generated with [Roary](https://sanger-pathogens.github.io/Roary/) (but can also accept inputs from [Panaroo](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-02090-4), [PPanGGOLiN](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1007732) and [RIBAP](https://doi.org/10.1186/s13059-024-03312-9)). We believe CLARC is particularly helpful for researchers that plan to perform downstream analyses that rely on COG frequencies, such as studying the evolutionary dynamics of accessory genes or running a panGWAS. 
 
 ## Installation
 
@@ -95,7 +96,7 @@ If the version appears, then the installation was successful!
 
 #### Description of inputs
 
-CLARC's default is to take the results of a [Roary](https://github.com/sanger-pathogens/Roary) pangenome analysis as input. However, it can also accept results from [Panaroo](https://github.com/gtonkinhill/panaroo) if the ```--panaroo``` flag is specified or from [PPanGGOLiN](https://ppanggolin.readthedocs.io/en/latest/) with the ```--ppanggo``` flag. More information on the Panaroo/PPanGGOLiN usage can be found in the [Inputs for Panaroo](#inputs-for-panaroo)/[Inputs for PPanGGOLiN](#inputs-for-ppanggolin) subsections of this documentation.
+CLARC's default is to take the results of a [Roary](https://github.com/sanger-pathogens/Roary) pangenome analysis as input. However, it can also accept results from [Panaroo](https://github.com/gtonkinhill/panaroo) if the ```--panaroo``` flag is specified, from [PPanGGOLiN](https://ppanggolin.readthedocs.io/en/latest/) with the ```--ppanggo``` flag or from [RIBAP](https://doi.org/10.1186/s13059-024-03312-9) with the ```--ribap``` flag. More information on the Panaroo/PPanGGOLiN/RIBAP usage can be found in the [Inputs for Panaroo](#inputs-for-panaroo)/[Inputs for PPanGGOLiN](#inputs-for-ppanggolin)/[Inputs for RIBAP](#inputs-for-ribap) subsections of this documentation.
 
 From Roary, CLARC uses two output files: The ```gene_presence_absence.csv``` file which contains a presence absence matrix with all the COGs identified by Roary and ```pan_genome_reference.fa``` which is a fasta file containing the representative sequences of these genes. The representative sequence is the longest instance of that COG across all samples where that COG was called. The .csv file contains ALL COGs called by Roary and not only core/accessory. Do not rename these files, as CLARC will look for them by name.
 
@@ -139,6 +140,20 @@ Now the clarc command can be run from the terminal, specifying the PPanGGOLiN fl
 
 ```bash
 clarc --input_dir {path to folder with input data} --ppanggo
+```
+
+### Inputs for RIBAP
+
+Starting from v1.2.2 you can run CLARC downstream of [RIBAP](https://doi.org/10.1186/s13059-024-03312-9). Running CLARC on RIBAP results requires the user to provide the folder containing the _full_ set of RIBAP results. Specifically, CLARC will search for the ```02-roary``` and ```05-combine``` subfolders. From there CLARC will use the ```holy_python_ribap_95.csv``` as the presence absence matrix and the ```pan_genome_reference.fa``` file from the Roary i95 analysis conducted by RIBAP to create a RIBAP equivalent of this fasta file. 
+
+As previously described with Roary, CLARC can accept a text file with the names of the samples in your population of interest. This file should be named ```needed_sample_names.txt```. The 'accessory gene' definitions and the linkage constraints will be calculated based on this population of samples. If you are using this option, you should put this text file in the folder that contains the RIBAP results.
+
+Make sure all input files are in the same folder, since you will specify the input folder path when running CLARC.
+
+Now the clarc command can be run from the terminal, specifying the RIBAP flag (within the clarc_env environment):
+
+```bash
+clarc --input_dir {path to folder with input data} --ribap
 ```
 
 ### Test data
@@ -218,6 +233,7 @@ Options: -h, --help  Show help message with options
          --connection_cut Threshold for connectivity of clusters to condense. Default is 1, only fully connected clusters are condensed. Setting to 0.90 will select clusters that are at least 90% connected instead of requiring full connectivity.
          --panaroo   Flag specifying that panaroo inputs will be used, if not provided the program will assume the pangenome inputs are from Roary
          --ppanggo   Flag specifying that PPanGGOLiN inputs will be used, if not provided the program will assume the pangenome inputs are from Roary
+         --ribap   Flag specifying that RIBAP inputs will be used, if not provided the program will assume the pangenome inputs are from Roary
          --filter-only   Flag to only run the initial accessory/core COGs filtering step, not the CLARC clustering algorithm.
          --max_cores Maximum number of CPU cores to use for parallel tasks. Default is all available cores
          --options   Display these options
