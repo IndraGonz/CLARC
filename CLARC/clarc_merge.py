@@ -41,7 +41,7 @@ import sys
 import shutil
 
 
-def merge_clarc_results(paths_list, out_path, panaroo_true):
+def merge_clarc_results(paths_list, out_path, panaroo_true, ppanggo_true):
 
     all_core_clusters = pd.DataFrame()
     all_acc_clusters = pd.DataFrame()
@@ -217,6 +217,20 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
 
         return condensed_row
 
+    def create_condensed_row_ppanggo(df, genes, new_gene_name):
+        rows_to_combine = df[df['Gene'].isin(genes)]
+
+        if rows_to_combine.empty:
+            return None
+
+        # Perform aggregation
+        condensed_row = {
+            'Gene': new_gene_name,
+            **{col: min(rows_to_combine[col].fillna(0).sum(), 1) for col in df.columns[1:]}
+        }
+
+        return condensed_row
+
     # Define function to loop through the legend of clusters and condense the rows of each cluster in the original pangenome output
 
     def process_clusters(df, legend):
@@ -250,12 +264,43 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
 
         return final_df
 
+    def process_clusters_ppanggo(df, legend):
+
+        legend_data = legend.to_dict(orient='records')
+        gene_set = set(df['Gene'])
+
+        condensed_rows = []
+        gene_to_condensed = {}
+
+        for row in legend_data:
+            values = list(row.values())
+            cogs_to_cluster = [x for x in values[:-1] if pd.notna(x)]
+            new_cluster_name = row['new_cluster_name_samecog']
+
+            # Skip if there are no COGs in the cluster (shouldn't happen but who knows)
+            if not cogs_to_cluster:
+                continue
+
+            condensed_row = create_condensed_row_ppanggo(df, cogs_to_cluster, new_cluster_name)
+            if condensed_row:
+                condensed_rows.append(condensed_row)
+
+                for gene in cogs_to_cluster:
+                    gene_to_condensed[gene] = new_cluster_name
+
+
+        filtered_df = df[~df['Gene'].isin(gene_to_condensed.keys())]
+        cluster_new_rows = pd.DataFrame(condensed_rows)
+        final_df = pd.concat([filtered_df, cluster_new_rows], ignore_index=True)
+
+        return final_df
+
     # Now we want to drop the COGs in the clusters we just condensed and add the presence absence info of the newly defined clusters. The presence absence matrix selected will the the one in the data folder of the first path, but as a reminder, they should be the same in ALL paths.
 
     # Import original presence absence matrix results and filter them to generate cleaner presence absence matrix (but do NOT filter for core or accessory)
     # The filtering will depend on whether the input is from Roary or Panaroo
 
-    if panaroo_true == 0:
+    if panaroo_true == 0 and ppanggo_true == 0:
 
         pres_abs_path = paths_list[0]+'/data/gene_presence_absence.csv'
 
@@ -335,8 +380,44 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
             os.makedirs(clarc_merge_path)
 
         # Export results
-        panaroo_og_merge_clarced_path = clarc_merge_path+'/gene_presence_absence_roary_clarc_merged.csv'
+        panaroo_og_merge_clarced_path = clarc_merge_path+'/gene_presence_absence_clarc_merged.csv'
         panaroo_onefilt_condensed.to_csv(panaroo_og_merge_clarced_path, index=False)
+
+    elif ppanggo_true == 1:
+
+        # Now we filter by frequency per each dataset (this can change depending on the datasets we want to include)
+        pres_abs_path = paths_list[0]+'/ppanggo_data/gene_presence_absence.Rtab'
+
+        # Import Ppanggo output
+        igopan_all_ppanggo = pd.read_csv(pres_abs_path, sep='\t', comment='#')
+
+        # Bakta often has spaces and special characters in its gene names, which can cause problems in the downstream analyses. So here we can turn them into underscores. I'm still deciding if this update is necessary. I think as long as the fasta files pick up the whole name, it should be fine.
+        # Update: this was absolutely necessary
+        igopan_all_ppanggo["Gene"] = igopan_all_ppanggo["Gene"].str.replace("[ ,\'\"]", "_", regex=True)
+
+        # Get list of PPanGGolin output names in a list
+        panppanggo_ids_list =  list(igopan_all_ppanggo["Gene"])
+
+        # Now make gene names the indeces
+        igopan_all_ppanggo.set_index('Gene', inplace=True)
+
+        # Switch rows to columns for ease
+        pres_abs_isol = igopan_all_ppanggo.transpose()
+        pres_abs_isol.index.name='Accession'
+
+        # Condense clusters on PPanGGolin output, using pre-defined functions
+        ppanggo_onefilt_condensed = igopan_all_ppanggo.copy().reset_index(drop=False)
+        ppanggo_onefilt_condensed = process_clusters_ppanggo(ppanggo_onefilt_condensed, conn_cluster_cogs_legend)
+
+        clarc_merge_path = out_path+"/clarc_merge_results"
+
+        # Check if the directory already exists (create if it doesn't)
+        if not os.path.exists(clarc_merge_path):
+            os.makedirs(clarc_merge_path)
+
+        # Export results
+        ppanggo_og_merge_clarced_path = clarc_merge_path+'/gene_presence_absence_clarc_merged.csv'
+        ppanggo_onefilt_condensed.to_csv(ppanggo_og_merge_clarced_path, index=False)
 
     # Add empty column to dataframe with cog pairs that exclude each other
     pres_abs_newclusters = pd.DataFrame()
@@ -356,12 +437,6 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
         pres_abs_newclusters = pd.concat([pres_abs_newclusters, df[new_name]], axis=1)
         # Since only the linkage of a specific subpopulation might be being used, if the the COGs coexist in any other sample then they are counted as present
         pres_abs_newclusters[pres_abs_newclusters > 1] = 1
-
-    # Drop cluster COGs from presence absence matrix
-    nonredundant_presabs = pres_abs_isol.drop(columns=all_unique)
-
-    # Now append new groups
-    samecog_clustered_presabs = pd.concat([nonredundant_presabs, pres_abs_newclusters], axis=1)
 
     # Drop cluster COGs from presence absence matrix
     nonredundant_presabs = pres_abs_isol.drop(columns=all_unique)
@@ -397,7 +472,14 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
     # Get fasta file with the representative sequences of the new accessory gene definitions
     # Get dataframe with all accessory COGs and their length
 
-    original_fasta_path = paths_list[0]+'/data/pan_genome_reference.fa'
+    if ppanggo_true == 0:
+
+        original_fasta_path = paths_list[0]+'/data/pan_genome_reference.fa'
+
+    elif ppanggo_true == 1:
+
+        original_fasta_path = paths_list[0]+'/ppanggo_data/all_nucleotide_families.fasta'
+
 
     def fasta_coglen_dataframe(fasta_file):
 
@@ -405,10 +487,17 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
         seq_lengths = []
 
         for record in SeqIO.parse(fasta_file, "fasta"):
-
             entry_description = record.description
-            cog_name = entry_description.split(' ', 1)[1]
-            cog_name_fixed = cog_name.replace(' ', '_').replace(',', '_').replace("'", '_').replace('"', '_')
+            parts = entry_description.split(' ', 1)
+
+            # If there is no description after the ID, just use the ID
+            if len(parts) == 1:
+                cog_name = parts[0]
+            else:
+                cog_name = parts[1]
+
+            cog_name_fixed = (cog_name.replace(' ', '_').replace(',', '_').replace("'", '_').replace('"', '_'))
+
             seq_ids.append(cog_name_fixed)
             seq_lengths.append(len(record.seq))
 
@@ -464,8 +553,13 @@ def merge_clarc_results(paths_list, out_path, panaroo_true):
     for record in SeqIO.parse(fin,'fasta'):
 
         entry_description = record.description
+        parts = entry_description.split(' ', 1)
 
-        cog_name = entry_description.split(' ', 1)[1]
+        if len(parts) == 1:
+            cog_name = parts[0]
+        else:
+            cog_name = parts[1]
+
         cog_name_fixed = cog_name.replace(' ', '_').replace(',', '_').replace("'", '_').replace('"', '_')
 
         if cog_name_fixed in all_unique:

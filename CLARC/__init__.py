@@ -110,7 +110,7 @@ def main():
 
         print("Merging results from different CLARC runs to obtain final cluster list...")
 
-        merge_clarc_results(merge, out_path=args.output_dir, panaroo_true=panaroo_true)
+        merge_clarc_results(merge, out_path=args.output_dir, panaroo_true=panaroo_true, ppanggo_true=ppanggo_true)
 
     else:
 

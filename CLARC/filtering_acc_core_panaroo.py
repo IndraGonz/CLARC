@@ -258,7 +258,7 @@ def get_pop_acc_pres_abs_panaroo(data_path, out_path, acc_upper, acc_lower):
         panaroo_seqs_interest_len = igopan_notinfasta_len[igopan_notinfasta_len.index == test_gene]
         panaroo_seqs_interest = igopan_all_panaroo_notinfasta[igopan_all_panaroo_notinfasta.index == test_gene]
 
-        max_seq_len =  panaroo_seqs_interest_len['Max group size nuc'][0]
+        max_seq_len = panaroo_seqs_interest_len['Max group size nuc'].iloc[0]
 
         # Now for my gene of interest, I get a dataframe that has a list of gff file identifiers tied to the sequence id (sometimes more than one) found in that sample
         melted_df = panaroo_seqs_interest.melt(var_name='gff_file', value_name='seq_id')
@@ -474,7 +474,7 @@ def get_pop_core_pres_abs_panaroo(data_path, out_path, core_lower):
         panaroo_seqs_interest_len = igopan_notinfasta_len[igopan_notinfasta_len.index == test_gene]
         panaroo_seqs_interest = igopan_all_panaroo_notinfasta[igopan_all_panaroo_notinfasta.index == test_gene]
 
-        max_seq_len =  panaroo_seqs_interest_len['Max group size nuc'][0]
+        max_seq_len = panaroo_seqs_interest_len['Max group size nuc'].iloc[0]
 
         # Now for my gene of interest, I get a dataframe that has a list of gff file identifiers tied to the sequence id (sometimes more than one) found in that sample
         melted_df = panaroo_seqs_interest.melt(var_name='gff_file', value_name='seq_id')
